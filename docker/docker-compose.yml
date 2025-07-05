@@ -1,0 +1,69 @@
+services:
+  server:
+    image: ${PROJECT_NAME}-app
+    container_name: ${PROJECT_NAME}-server
+    user: ${CURRENT_UID}:${CURRENT_GID}
+    working_dir: /app
+    volumes:
+      - ../:/app
+    environment:
+      - RUN_ADDRESS=${SRV_LISTEN}
+      - DATABASE_URI=${DATABASE_URI}
+      - ACCRUAL_SYSTEM_ADDRESS=${ACCRUAL_ADDR}
+    ports:
+      - "${LOCAL_PORT}:${SRV_PORT}"
+    command: /app/cmd/gophermart/gophermart
+    networks:
+      - loyalty
+  accrual:
+    image: ${PROJECT_NAME}-app
+    container_name: ${PROJECT_NAME}-accrual
+    user: ${CURRENT_UID}:${CURRENT_GID}
+    working_dir: /app
+    volumes:
+      - ../:/app
+    environment:
+      - RUN_ADDRESS=${ACCRUAL_LISTEN}
+      - DATABASE_URI=${DATABASE_URI}
+    ports:
+      - "${ACCRUAL_LOCAL_PORT}:${ACCRUAL_PORT}"
+    command: /app/cmd/accrual/accrual_linux_amd64
+    networks:
+      - loyalty
+  postgres:
+    image: postgres:latest
+    container_name: ${PROJECT_NAME}-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: loyalty
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5429:5432"
+    volumes:
+      - /tmp/pgdata:/var/lib/postgresql/data/pgdata
+    networks:
+      - loyalty
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    command: >
+      postgres -c max_connections=1000
+               -c shared_buffers=256MB
+               -c effective_cache_size=768MB
+               -c maintenance_work_mem=64MB
+               -c checkpoint_completion_target=0.7
+               -c wal_buffers=16MB
+               -c default_statistics_target=100
+networks:
+  loyalty:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 173.23.0.0/16

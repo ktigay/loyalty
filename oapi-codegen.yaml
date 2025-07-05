@@ -1,0 +1,13 @@
+package: api
+output: internal/api/server.gen.go
+
+generate:
+  models: true
+  gorilla-server: true
+import-mapping:
+  ../../server.yaml: api/openapi/server.yaml
+
+output-options:
+  user-templates:
+    constants.tmpl: ./internal/api/templates/constants.tmpl
+    gorilla/gorilla-interface.tmpl: ./internal/api/templates/gorilla-interface.tmpl

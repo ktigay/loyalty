@@ -1,0 +1,13 @@
+services:
+  app:
+    image: ${PROJECT_NAME}-app
+    user: ${CURRENT_UID}:${CURRENT_GID}
+    build:
+      dockerfile: ./docker/Dockerfile
+      context: ../
+      args:
+        - COMPOSE_PROJECT_NAME=${PROJECT_NAME}
+        - TAG=local
+    working_dir: /app
+    volumes:
+      - ../:/app

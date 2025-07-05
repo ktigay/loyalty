@@ -1,0 +1,89 @@
+package db
+
+import (
+	"context"
+	"errors"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type dbKey int
+
+const (
+	TxInContext dbKey = iota
+)
+
+// TxFacadeInterface Интерфейс для работы с транзакциями.
+//
+//go:generate mockgen -destination=./mocks/mock_tx.go -package=mocks github.com/ktigay/loyalty/internal/db TxFacadeInterface
+type TxFacadeInterface interface {
+	RunInTx(ctx context.Context, opts pgx.TxOptions, fn func(ctxWithTx context.Context) error) error
+}
+
+//go:generate mockgen -destination=./mocks/mock_conn.go -package=mocks github.com/ktigay/loyalty/internal/db PgxConn
+type PgxConn interface {
+	BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error)
+}
+
+// PgxTxFacade Структура для работы с транзакциями.
+type PgxTxFacade struct {
+	pgxConn PgxConn
+}
+
+// RunInTx Выполняет функцию внутри транзакции.
+func (t PgxTxFacade) RunInTx(ctx context.Context, opts pgx.TxOptions, fn func(ctxWithTx context.Context) error) error {
+	tx, err := t.pgxConn.BeginTx(ctx, opts)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		rollbackErr := tx.Rollback(ctx)
+		if rollbackErr != nil {
+			err = errors.Join(err, rollbackErr)
+		}
+	}()
+
+	ctxWithTx := txWithContext(ctx, tx)
+	if err = fn(ctxWithTx); err == nil {
+		err = tx.Commit(ctx)
+	}
+
+	return err
+}
+
+// NewPgxTxFacade Конструктор.
+func NewPgxTxFacade(pool *pgxpool.Pool) *PgxTxFacade {
+	return &PgxTxFacade{pgxConn: pool}
+}
+
+func txWithContext(ctx context.Context, tx pgx.Tx) context.Context {
+	return context.WithValue(ctx, TxInContext, tx)
+}
+
+// TxFromContext Транзакция из контекста.
+func TxFromContext(ctx context.Context) pgx.Tx {
+	pgTx, _ := ctx.Value(TxInContext).(pgx.Tx)
+	return pgTx
+}
+
+// ConnWrapper Обёртка для работы с БД.
+type ConnWrapper struct {
+	db ConnInterface
+}
+
+// Connection Возвращает [ConnInterface].
+// Если есть транзакция, то возвращается транзакция. Иначе обычное соединение к БД.
+func (c *ConnWrapper) Connection(ctx context.Context) ConnInterface {
+	if tx := TxFromContext(ctx); tx != nil {
+		return tx
+	}
+	return c.db
+}
+
+// NewConnWrapper Конструктор.
+func NewConnWrapper(conn ConnInterface) *ConnWrapper {
+	return &ConnWrapper{
+		db: conn,
+	}
+}

@@ -1,0 +1,194 @@
+# https://taskfile.dev
+
+version: '3'
+
+env:
+  # проект.
+  PROJECT_NAME: loyalty
+  # пользователь.
+  CURRENT_UID:
+    sh: id -u
+  # группа пользователя.
+  CURRENT_GID:
+    sh: id -g
+  # локальный, внешний порт.
+  LOCAL_PORT: 5001
+  # внутренний порт сервиса лояльности.
+  SRV_PORT: 8080
+  # адрес, который слушает сервис лояльности.
+  SRV_LISTEN: :8080
+  # dsn к postgres
+  DATABASE_URI: postgres://postgres:postgres@192.168.1.46:5429/loyalty?sslmode=disable
+  # уровень логирования
+  LOG_LEVEL: debug
+  # внешний порт сервиса списаний.
+  ACCRUAL_LOCAL_PORT: 5002
+  # внутренний порт сервиса списаний.
+  ACCRUAL_PORT: 8081
+  # адрес, который слушает сервис списаний.
+  ACCRUAL_LISTEN: :8081
+  # адрес, по которому стучится сервис лояльности.
+  ACCRUAL_ADDR: http://accrual:8081
+
+vars:
+  PROJECT_NAME:
+    ref: .PROJECT_NAME
+  DATABASE_URI:
+    ref: .DATABASE_URI
+  SRV_PORT:
+    ref: .SRV_PORT
+  LOCAL_PORT:
+    ref: .LOCAL_PORT
+  ACCRUAL_LOCAL_PORT:
+    ref: .ACCRUAL_LOCAL_PORT
+  SERVER_PATH: ./cmd/gophermart/gophermart
+
+tasks:
+  default:
+    - task: test
+
+  build:
+    desc: Билд образов docker.
+    dir: ./docker
+    cmds:
+      - docker compose -f docker-compose.build.yml build app
+
+  docker-run:*:
+    desc: Запускает команду под докером.
+    dir: ./docker
+    cmds:
+      - docker run --rm -v {{.USER_WORKING_DIR}}:/app -it {{.PROJECT_NAME}}-app {{index .MATCH 0}}
+
+  gen-mock-local:
+    desc: Генерит моки локально.
+    run: once
+    cmds:
+      - go generate ./...
+
+  build-local:
+    desc: Локальный билд бинарников.
+    deps:
+      - gen-mock-local
+    run: when_changed
+    cmds:
+      - go build -gcflags "all=-N -l" -o {{.SERVER_PATH}} ./cmd/gophermart/*.go
+    sources:
+      - ./**/*.go
+      - ./internal/**/*.go
+      - ./cmd/**/*.go
+    generates:
+      - ./cmd/gophermart/gophermart{{exeExt}}
+
+  gen-mock:
+    desc: Генерит моки из докера.
+    run: once
+    deps:
+      - cs
+    cmds:
+      - task: docker-run:go generate ./...
+
+  gen-oapi:
+    desc: Генерация OpenApi.
+    run: once
+    sources:
+      - ./api/openapi/**/*.yaml
+      - ./api/openapi/*.yaml
+      - ./internal/api/templates/*.tmpl
+    cmds:
+      - oapi-codegen --config=oapi-codegen.yaml api/openapi/server.yaml
+
+  build-server:
+    desc: Билд сервера из докера.
+    run: once
+    deps:
+      - cs
+    cmds:
+      - task: docker-run:go build -gcflags "all=-N -l" -o /app/cmd/gophermart/gophermart /app/cmd/gophermart/
+
+  test:
+    deps:
+      - build-server
+    cmds:
+      - task: unit
+      - task: statictest
+      - task: lint
+
+  unit:
+    desc: Юнит тесты.
+    cmds:
+      - task: docker-run:sh -c "go test ./..."
+
+  statictest:
+    desc: Статик тесты.
+    cmds:
+      - task: docker-run:sh -c "go vet -vettool=\$(which statictest) ./..."
+
+  lint:
+    desc: Линтеры.
+    cmds:
+      - task: docker-run:golangci-lint run
+
+  cs:
+    run: once
+    desc: Форматирование стиля.
+    cmds:
+      - task: docker-run:gofumpt -w -extra internal/ cmd/
+
+  gophermarttest:
+    cmds:
+      - gophermarttest 
+        -test.v -test.run=^TestGophermart$ 
+        -gophermart-binary-path=cmd/gophermart/gophermart 
+        -gophermart-host=localhost 
+        -gophermart-port={{.LOCAL_PORT}} 
+        -gophermart-database-uri="{{.DATABASE_URI}}" 
+        -accrual-binary-path=cmd/accrual/accrual_linux_amd64 
+        -accrual-host=localhost 
+        -accrual-port={{.ACCRUAL_LOCAL_PORT}}
+        -accrual-database-uri="{{.DATABASE_URI}}"
+
+  compose:*:
+    dir: ./docker
+    cmds:
+      - docker compose -p {{.PROJECT_NAME}} {{index .MATCH 0}}
+
+  up:
+    desc: Поднимает сервер и БД.
+    cmds:
+      - task: up-db
+      - task: up-server
+      - task: up-accrual
+
+  up-server:
+    desc: Поднимает сервер.
+    deps:
+      - build-server
+    cmds:
+      - task: compose:up -d server
+
+  up-accrual:
+    desc: Поднимает систему расчета баллов.
+    deps:
+      - build-server
+    cmds:
+      - task: compose:up -d accrual
+
+  up-db:
+    desc: Поднимает БД.
+    cmds:
+      - task: compose:up -d postgres
+
+  down:
+    desc: Останавливает сервер и БД.
+    cmds:
+      - task: compose:down server postgres accrual
+
+  down:*:
+    desc: Останавливает сервис.
+    cmds:
+      - task: compose:down {{index .MATCH 0}}
+
+  update-tpl:
+    # git remote add -m master template https://github.com/yandex-praktikum/go-musthave-diploma-tpl.git
+    cmds:
+      - git fetch template && git checkout template/main .github

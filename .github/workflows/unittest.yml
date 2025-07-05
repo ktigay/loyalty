@@ -1,0 +1,15 @@
+name: unit tests
+
+on: [pull_request]
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    container: golang:1.24
+    steps:
+       - name: Checkout code
+         uses: actions/checkout@v2
+
+       - name: Run unit tests
+         run: |
+           go test ./...
