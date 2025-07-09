@@ -73,9 +73,10 @@ func main() {
 	}
 
 	router := mux.NewRouter()
-	midWare := middleware.New(auth)
+	midWare := middleware.New(auth, logger)
 
 	_, err = api.NewServerHandler(apiSrv, router, []api.MiddlewareFunc{
+		midWare.RecoverWrapMiddleware(),
 		midWare.SecurityMiddleware(),
 	})
 	if err != nil {

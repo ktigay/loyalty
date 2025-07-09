@@ -3,6 +3,7 @@ package middleware
 import (
 	"errors"
 	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/ktigay/loyalty/internal/api"
@@ -17,7 +18,8 @@ type AuthInterface interface {
 
 // Middleware Мидлвар.
 type Middleware struct {
-	auth AuthInterface
+	auth   AuthInterface
+	logger *slog.Logger
 }
 
 // SecurityMiddleware Обработка аутентификации пользователя.
@@ -52,9 +54,26 @@ func (m *Middleware) SecurityMiddleware() api.MiddlewareFunc {
 	}
 }
 
+// RecoverWrapMiddleware Обработка panic().
+func (m *Middleware) RecoverWrapMiddleware() api.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer func() {
+				if err := recover(); err != nil {
+					m.logger.Error("Recovering from", "err", err)
+					w.WriteHeader(http.StatusInternalServerError)
+				}
+			}()
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // New Конструктор.
-func New(auth AuthInterface) *Middleware {
+func New(auth AuthInterface, logger *slog.Logger) *Middleware {
 	return &Middleware{
-		auth: auth,
+		auth:   auth,
+		logger: logger,
 	}
 }
