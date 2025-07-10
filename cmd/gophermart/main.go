@@ -76,8 +76,9 @@ func main() {
 	midWare := middleware.New(auth, logger)
 
 	_, err = api.NewServerHandler(apiSrv, router, []api.MiddlewareFunc{
-		midWare.RecoverWrapMiddleware(),
-		midWare.SecurityMiddleware(),
+		midWare.WithLogging,
+		midWare.RecoverWrapMiddleware,
+		midWare.SecurityMiddleware,
 	})
 	if err != nil {
 		logger.Error("Failed to register API", "error", err)
