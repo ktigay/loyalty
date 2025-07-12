@@ -22,9 +22,9 @@ import (
 )
 
 type fields struct {
-	orderSv    func(ctrl *gomock.Controller) OrderServiceInterface
-	balanceSv  func(ctrl *gomock.Controller) ServiceInterface
-	withdrawSv func(ctrl *gomock.Controller) WithdrawServiceInterface
+	orderSv    func(ctrl *gomock.Controller) OrderService
+	balanceSv  func(ctrl *gomock.Controller) Service
+	withdrawSv func(ctrl *gomock.Controller) WithdrawService
 }
 
 func TestHandler_BalanceWithdrawHandler(t *testing.T) {
@@ -63,14 +63,14 @@ func TestHandler_BalanceWithdrawHandler(t *testing.T) {
 				contentType: "application/json",
 			},
 			fields: fields{
-				orderSv: func(ctrl *gomock.Controller) OrderServiceInterface {
-					orderSv := mocks.NewMockOrderServiceInterface(ctrl)
+				orderSv: func(ctrl *gomock.Controller) OrderService {
+					orderSv := mocks.NewMockOrderService(ctrl)
 					orderSv.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Eq(entity.Number("11112222"))).
 						Times(1).Return(&entity.Order{}, nil)
 					return orderSv
 				},
-				withdrawSv: func(ctrl *gomock.Controller) WithdrawServiceInterface {
-					withdrawSv := mocks.NewMockWithdrawServiceInterface(ctrl)
+				withdrawSv: func(ctrl *gomock.Controller) WithdrawService {
+					withdrawSv := mocks.NewMockWithdrawService(ctrl)
 					withdrawSv.EXPECT().MakeWithdraw(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Eq(int64(10012))).
 						Times(1).Return(nil, nil)
 					return withdrawSv
@@ -101,8 +101,8 @@ func TestHandler_BalanceWithdrawHandler(t *testing.T) {
 				contentType: "application/json",
 			},
 			fields: fields{
-				orderSv: func(ctrl *gomock.Controller) OrderServiceInterface {
-					orderSv := mocks.NewMockOrderServiceInterface(ctrl)
+				orderSv: func(ctrl *gomock.Controller) OrderService {
+					orderSv := mocks.NewMockOrderService(ctrl)
 					orderSv.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Eq(entity.Number("11112222"))).
 						Times(1).Return(nil, fmt.Errorf("some error"))
 					return orderSv
@@ -121,14 +121,14 @@ func TestHandler_BalanceWithdrawHandler(t *testing.T) {
 				contentType: "application/json",
 			},
 			fields: fields{
-				orderSv: func(ctrl *gomock.Controller) OrderServiceInterface {
-					orderSv := mocks.NewMockOrderServiceInterface(ctrl)
+				orderSv: func(ctrl *gomock.Controller) OrderService {
+					orderSv := mocks.NewMockOrderService(ctrl)
 					orderSv.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Eq(entity.Number("11112222"))).
 						Times(1).Return(&entity.Order{}, nil)
 					return orderSv
 				},
-				withdrawSv: func(ctrl *gomock.Controller) WithdrawServiceInterface {
-					withdrawSv := mocks.NewMockWithdrawServiceInterface(ctrl)
+				withdrawSv: func(ctrl *gomock.Controller) WithdrawService {
+					withdrawSv := mocks.NewMockWithdrawService(ctrl)
 					withdrawSv.EXPECT().MakeWithdraw(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 						Times(1).Return(nil, withdraw.ErrNotEnoughBalance)
 					return withdrawSv
@@ -147,14 +147,14 @@ func TestHandler_BalanceWithdrawHandler(t *testing.T) {
 				contentType: "application/json",
 			},
 			fields: fields{
-				orderSv: func(ctrl *gomock.Controller) OrderServiceInterface {
-					orderSv := mocks.NewMockOrderServiceInterface(ctrl)
+				orderSv: func(ctrl *gomock.Controller) OrderService {
+					orderSv := mocks.NewMockOrderService(ctrl)
 					orderSv.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Eq(entity.Number("11112222"))).
 						Times(1).Return(&entity.Order{}, nil)
 					return orderSv
 				},
-				withdrawSv: func(ctrl *gomock.Controller) WithdrawServiceInterface {
-					withdrawSv := mocks.NewMockWithdrawServiceInterface(ctrl)
+				withdrawSv: func(ctrl *gomock.Controller) WithdrawService {
+					withdrawSv := mocks.NewMockWithdrawService(ctrl)
 					withdrawSv.EXPECT().MakeWithdraw(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 						Times(1).Return(nil, withdraw.ErrWrongOrderNumber)
 					return withdrawSv
@@ -173,14 +173,14 @@ func TestHandler_BalanceWithdrawHandler(t *testing.T) {
 				contentType: "application/json",
 			},
 			fields: fields{
-				orderSv: func(ctrl *gomock.Controller) OrderServiceInterface {
-					orderSv := mocks.NewMockOrderServiceInterface(ctrl)
+				orderSv: func(ctrl *gomock.Controller) OrderService {
+					orderSv := mocks.NewMockOrderService(ctrl)
 					orderSv.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Eq(entity.Number("11112222"))).
 						Times(1).Return(&entity.Order{}, nil)
 					return orderSv
 				},
-				withdrawSv: func(ctrl *gomock.Controller) WithdrawServiceInterface {
-					withdrawSv := mocks.NewMockWithdrawServiceInterface(ctrl)
+				withdrawSv: func(ctrl *gomock.Controller) WithdrawService {
+					withdrawSv := mocks.NewMockWithdrawService(ctrl)
 					withdrawSv.EXPECT().MakeWithdraw(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 						Times(1).Return(nil, errors.New("some error"))
 					return withdrawSv
@@ -239,8 +239,8 @@ func TestHandler_GetBalanceHandler(t *testing.T) {
 		{
 			name: "Request_With_StatusOK_With_Sum_Check",
 			fields: fields{
-				balanceSv: func(ctrl *gomock.Controller) ServiceInterface {
-					balanceSv := mocks.NewMockServiceInterface(ctrl)
+				balanceSv: func(ctrl *gomock.Controller) Service {
+					balanceSv := mocks.NewMockService(ctrl)
 					e := entity.Balance{
 						Current:   int64(20012),
 						Withdrawn: int64(10000),
@@ -259,8 +259,8 @@ func TestHandler_GetBalanceHandler(t *testing.T) {
 		{
 			name: "Request_With_Get_Balance_Failed",
 			fields: fields{
-				balanceSv: func(ctrl *gomock.Controller) ServiceInterface {
-					balanceSv := mocks.NewMockServiceInterface(ctrl)
+				balanceSv: func(ctrl *gomock.Controller) Service {
+					balanceSv := mocks.NewMockService(ctrl)
 					balanceSv.EXPECT().Balance(gomock.Any(), gomock.Any()).
 						Times(1).Return(nil, errors.New("some error"))
 					return balanceSv
@@ -328,8 +328,8 @@ func TestHandler_GetWithdrawalsHandler(t *testing.T) {
 		{
 			name: "Request_With_StatusOK",
 			fields: fields{
-				withdrawSv: func(ctrl *gomock.Controller) WithdrawServiceInterface {
-					withdrawSv := mocks.NewMockWithdrawServiceInterface(ctrl)
+				withdrawSv: func(ctrl *gomock.Controller) WithdrawService {
+					withdrawSv := mocks.NewMockWithdrawService(ctrl)
 					e := []entity.Withdrawal{
 						{
 							OrderID: order1,
@@ -343,7 +343,7 @@ func TestHandler_GetWithdrawalsHandler(t *testing.T) {
 					}
 
 					withdrawSv.EXPECT().Withdrawals(gomock.Any(), gomock.Any()).
-						Times(1).Return(&e, nil)
+						Times(1).Return(e, nil)
 					return withdrawSv
 				},
 			},
@@ -356,8 +356,8 @@ func TestHandler_GetWithdrawalsHandler(t *testing.T) {
 		{
 			name: "Request_GetWithdrawals_Failed",
 			fields: fields{
-				withdrawSv: func(ctrl *gomock.Controller) WithdrawServiceInterface {
-					withdrawSv := mocks.NewMockWithdrawServiceInterface(ctrl)
+				withdrawSv: func(ctrl *gomock.Controller) WithdrawService {
+					withdrawSv := mocks.NewMockWithdrawService(ctrl)
 
 					withdrawSv.EXPECT().Withdrawals(gomock.Any(), gomock.Any()).
 						Times(1).Return(nil, errors.New("some error"))
@@ -371,8 +371,8 @@ func TestHandler_GetWithdrawalsHandler(t *testing.T) {
 		{
 			name: "Request_GetWithdrawals_Empty_Result",
 			fields: fields{
-				withdrawSv: func(ctrl *gomock.Controller) WithdrawServiceInterface {
-					withdrawSv := mocks.NewMockWithdrawServiceInterface(ctrl)
+				withdrawSv: func(ctrl *gomock.Controller) WithdrawService {
+					withdrawSv := mocks.NewMockWithdrawService(ctrl)
 
 					withdrawSv.EXPECT().Withdrawals(gomock.Any(), gomock.Any()).
 						Times(1).Return(nil, nil)
@@ -424,22 +424,22 @@ func TestHandler_GetWithdrawalsHandler(t *testing.T) {
 
 func handler(ctrl *gomock.Controller, fields fields) *Handler {
 	var (
-		orderSv    OrderServiceInterface
-		balanceSv  ServiceInterface
-		withdrawSv WithdrawServiceInterface
+		orderSv    OrderService
+		balanceSv  Service
+		withdrawSv WithdrawService
 	)
 	if fields.orderSv == nil {
-		orderSv = mocks.NewMockOrderServiceInterface(ctrl)
+		orderSv = mocks.NewMockOrderService(ctrl)
 	} else {
 		orderSv = fields.orderSv(ctrl)
 	}
 	if fields.balanceSv == nil {
-		balanceSv = mocks.NewMockServiceInterface(ctrl)
+		balanceSv = mocks.NewMockService(ctrl)
 	} else {
 		balanceSv = fields.balanceSv(ctrl)
 	}
 	if fields.withdrawSv == nil {
-		withdrawSv = mocks.NewMockWithdrawServiceInterface(ctrl)
+		withdrawSv = mocks.NewMockWithdrawService(ctrl)
 	} else {
 		withdrawSv = fields.withdrawSv(ctrl)
 	}

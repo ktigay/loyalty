@@ -11,12 +11,12 @@ import (
 func TestAccrualHydrator_OrdersWithAccrual(t *testing.T) {
 	type args struct {
 		orders []entity.Order
-		acc    []entity.Accrual
+		acc    []entity.AccrualOrder
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    *[]entity.Order
+		want    []entity.Order
 		wantErr assert.ErrorAssertionFunc
 	}{
 		{
@@ -44,7 +44,7 @@ func TestAccrualHydrator_OrdersWithAccrual(t *testing.T) {
 						OrderID:  "4532733309529845",
 					},
 				},
-				acc: []entity.Accrual{
+				acc: []entity.AccrualOrder{
 					{
 						OrderID: "4929972884676289",
 						Status:  "NEW",
@@ -72,7 +72,7 @@ func TestAccrualHydrator_OrdersWithAccrual(t *testing.T) {
 					},
 				},
 			},
-			want: &[]entity.Order{
+			want: []entity.Order{
 				{
 					ID:       4,
 					UserUUID: "uuid-1",

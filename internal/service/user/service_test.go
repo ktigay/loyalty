@@ -19,9 +19,9 @@ import (
 )
 
 type fields struct {
-	userRepo    func(ctrl *gomock.Controller) RepositoryInterface
-	balanceRepo func(ctrl *gomock.Controller) BalanceRepoInterface
-	pgxTx       func(ctrl *gomock.Controller) db.TxFacadeInterface
+	userRepo    func(ctrl *gomock.Controller) Repository
+	balanceRepo func(ctrl *gomock.Controller) BalanceRepo
+	pgxTx       func(ctrl *gomock.Controller) db.TxFacade
 }
 
 func TestService_Create(t *testing.T) {
@@ -58,16 +58,16 @@ func TestService_Create(t *testing.T) {
 		{
 			name: "Transaction_Rollback_On_CreateUser_Error",
 			fields: fields{
-				pgxTx: func(ctrl *gomock.Controller) db.TxFacadeInterface {
-					tx := dbmocks.NewMockTxFacadeInterface(ctrl)
+				pgxTx: func(ctrl *gomock.Controller) db.TxFacade {
+					tx := dbmocks.NewMockTxFacade(ctrl)
 					tx.EXPECT().RunInTx(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).DoAndReturn(
 						func(ctx context.Context, opts pgx.TxOptions, fn func(ctxWithTx context.Context) error) error {
 							return fn(ctx)
 						})
 					return tx
 				},
-				userRepo: func(ctrl *gomock.Controller) RepositoryInterface {
-					userRepo := mocks.NewMockRepositoryInterface(ctrl)
+				userRepo: func(ctrl *gomock.Controller) Repository {
+					userRepo := mocks.NewMockRepository(ctrl)
 					userRepo.EXPECT().CreateUser(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, fmt.Errorf("use create error"))
 					return userRepo
 				},
@@ -81,22 +81,22 @@ func TestService_Create(t *testing.T) {
 		{
 			name: "Transaction_Rollback_On_Balance_Create_Error",
 			fields: fields{
-				pgxTx: func(ctrl *gomock.Controller) db.TxFacadeInterface {
-					tx := dbmocks.NewMockTxFacadeInterface(ctrl)
+				pgxTx: func(ctrl *gomock.Controller) db.TxFacade {
+					tx := dbmocks.NewMockTxFacade(ctrl)
 					tx.EXPECT().RunInTx(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).DoAndReturn(
 						func(ctx context.Context, opts pgx.TxOptions, fn func(ctxWithTx context.Context) error) error {
 							return fn(ctx)
 						})
 					return tx
 				},
-				userRepo: func(ctrl *gomock.Controller) RepositoryInterface {
-					userRepo := mocks.NewMockRepositoryInterface(ctrl)
+				userRepo: func(ctrl *gomock.Controller) Repository {
+					userRepo := mocks.NewMockRepository(ctrl)
 					var u entity.User
 					userRepo.EXPECT().CreateUser(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(&u, nil)
 					return userRepo
 				},
-				balanceRepo: func(ctrl *gomock.Controller) BalanceRepoInterface {
-					balanceRepo := mocks.NewMockBalanceRepoInterface(ctrl)
+				balanceRepo: func(ctrl *gomock.Controller) BalanceRepo {
+					balanceRepo := mocks.NewMockBalanceRepo(ctrl)
 					balanceRepo.EXPECT().Create(gomock.Any(), gomock.Any()).Times(1).Return(fmt.Errorf("balance create error"))
 					return balanceRepo
 				},
@@ -110,22 +110,22 @@ func TestService_Create(t *testing.T) {
 		{
 			name: "Transaction_Success",
 			fields: fields{
-				pgxTx: func(ctrl *gomock.Controller) db.TxFacadeInterface {
-					tx := dbmocks.NewMockTxFacadeInterface(ctrl)
+				pgxTx: func(ctrl *gomock.Controller) db.TxFacade {
+					tx := dbmocks.NewMockTxFacade(ctrl)
 					tx.EXPECT().RunInTx(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).DoAndReturn(
 						func(ctx context.Context, opts pgx.TxOptions, fn func(ctxWithTx context.Context) error) error {
 							return fn(ctx)
 						})
 					return tx
 				},
-				userRepo: func(ctrl *gomock.Controller) RepositoryInterface {
-					userRepo := mocks.NewMockRepositoryInterface(ctrl)
+				userRepo: func(ctrl *gomock.Controller) Repository {
+					userRepo := mocks.NewMockRepository(ctrl)
 					var u entity.User
 					userRepo.EXPECT().CreateUser(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(&u, nil)
 					return userRepo
 				},
-				balanceRepo: func(ctrl *gomock.Controller) BalanceRepoInterface {
-					balanceRepo := mocks.NewMockBalanceRepoInterface(ctrl)
+				balanceRepo: func(ctrl *gomock.Controller) BalanceRepo {
+					balanceRepo := mocks.NewMockBalanceRepo(ctrl)
 					balanceRepo.EXPECT().Create(gomock.Any(), gomock.Any()).Times(1).Return(nil)
 					return balanceRepo
 				},
@@ -189,8 +189,8 @@ func TestService_UserByCredentials(t *testing.T) {
 		{
 			name: "Success_Without_Errors",
 			fields: fields{
-				userRepo: func(ctrl *gomock.Controller) RepositoryInterface {
-					userRepo := mocks.NewMockRepositoryInterface(ctrl)
+				userRepo: func(ctrl *gomock.Controller) Repository {
+					userRepo := mocks.NewMockRepository(ctrl)
 					pwd, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
 					u := entity.User{
 						Login:    login,
@@ -226,22 +226,22 @@ func TestService_UserByCredentials(t *testing.T) {
 
 func service(ctrl *gomock.Controller, fields fields) *Service {
 	var (
-		userRepo    RepositoryInterface
-		balanceRepo BalanceRepoInterface
-		tx          db.TxFacadeInterface
+		userRepo    Repository
+		balanceRepo BalanceRepo
+		tx          db.TxFacade
 	)
 	if fields.userRepo == nil {
-		userRepo = mocks.NewMockRepositoryInterface(ctrl)
+		userRepo = mocks.NewMockRepository(ctrl)
 	} else {
 		userRepo = fields.userRepo(ctrl)
 	}
 	if fields.balanceRepo == nil {
-		balanceRepo = mocks.NewMockBalanceRepoInterface(ctrl)
+		balanceRepo = mocks.NewMockBalanceRepo(ctrl)
 	} else {
 		balanceRepo = fields.balanceRepo(ctrl)
 	}
 	if fields.pgxTx == nil {
-		tx = dbmocks.NewMockTxFacadeInterface(ctrl)
+		tx = dbmocks.NewMockTxFacade(ctrl)
 	} else {
 		tx = fields.pgxTx(ctrl)
 	}

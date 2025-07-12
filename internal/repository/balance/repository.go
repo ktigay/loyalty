@@ -46,7 +46,7 @@ var (
 
 // Repository Репозиторий баланса.
 type Repository struct {
-	db     *db.ConnWrapper
+	db     db.ConnWrapper
 	logger *slog.Logger
 }
 
@@ -108,9 +108,9 @@ func (r *Repository) fullScan(row pgx.Row, balance *entity.Balance) error {
 }
 
 // New Конструктор.
-func New(conn db.ConnInterface, logger *slog.Logger) *Repository {
+func New(db db.ConnWrapper, logger *slog.Logger) *Repository {
 	return &Repository{
-		db:     db.NewConnWrapper(conn),
+		db:     db,
 		logger: logger,
 	}
 }

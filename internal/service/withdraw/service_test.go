@@ -17,10 +17,10 @@ import (
 )
 
 type fields struct {
-	withdrawRepo func(ctrl *gomock.Controller) RepositoryInterface
-	balanceRepo  func(ctrl *gomock.Controller) BalanceRepoInterface
-	orderRepo    func(ctrl *gomock.Controller) OrderRepoInterface
-	pgxTx        func(ctrl *gomock.Controller) db.TxFacadeInterface
+	withdrawRepo func(ctrl *gomock.Controller) Repository
+	balanceRepo  func(ctrl *gomock.Controller) BalanceRepo
+	orderRepo    func(ctrl *gomock.Controller) OrderRepo
+	pgxTx        func(ctrl *gomock.Controller) db.TxFacade
 }
 
 func TestService_MakeWithdraw(t *testing.T) {
@@ -41,8 +41,8 @@ func TestService_MakeWithdraw(t *testing.T) {
 		{
 			name: "OrderByUser_With_No_Result_Error",
 			fields: fields{
-				orderRepo: func(ctrl *gomock.Controller) OrderRepoInterface {
-					orderRepo := mocks.NewMockOrderRepoInterface(ctrl)
+				orderRepo: func(ctrl *gomock.Controller) OrderRepo {
+					orderRepo := mocks.NewMockOrderRepo(ctrl)
 					orderRepo.EXPECT().OrderByUser(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, pgx.ErrNoRows)
 					return orderRepo
 				},
@@ -52,21 +52,21 @@ func TestService_MakeWithdraw(t *testing.T) {
 		{
 			name: "Transaction_Rollback_On_BalanceForUpdate_Error",
 			fields: fields{
-				pgxTx: func(ctrl *gomock.Controller) db.TxFacadeInterface {
-					tx := dbmocks.NewMockTxFacadeInterface(ctrl)
+				pgxTx: func(ctrl *gomock.Controller) db.TxFacade {
+					tx := dbmocks.NewMockTxFacade(ctrl)
 					tx.EXPECT().RunInTx(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).DoAndReturn(
 						func(ctx context.Context, opts pgx.TxOptions, fn func(ctxWithTx context.Context) error) error {
 							return fn(ctx)
 						})
 					return tx
 				},
-				orderRepo: func(ctrl *gomock.Controller) OrderRepoInterface {
-					orderRepo := mocks.NewMockOrderRepoInterface(ctrl)
+				orderRepo: func(ctrl *gomock.Controller) OrderRepo {
+					orderRepo := mocks.NewMockOrderRepo(ctrl)
 					orderRepo.EXPECT().OrderByUser(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, nil)
 					return orderRepo
 				},
-				balanceRepo: func(ctrl *gomock.Controller) BalanceRepoInterface {
-					balanceRepo := mocks.NewMockBalanceRepoInterface(ctrl)
+				balanceRepo: func(ctrl *gomock.Controller) BalanceRepo {
+					balanceRepo := mocks.NewMockBalanceRepo(ctrl)
 					balanceRepo.EXPECT().Balance(gomock.Any(), gomock.Any()).Times(1).Return(nil, errBalanceForUpdate)
 					return balanceRepo
 				},
@@ -76,21 +76,21 @@ func TestService_MakeWithdraw(t *testing.T) {
 		{
 			name: "Increase_Withdraw_Success",
 			fields: fields{
-				pgxTx: func(ctrl *gomock.Controller) db.TxFacadeInterface {
-					tx := dbmocks.NewMockTxFacadeInterface(ctrl)
+				pgxTx: func(ctrl *gomock.Controller) db.TxFacade {
+					tx := dbmocks.NewMockTxFacade(ctrl)
 					tx.EXPECT().RunInTx(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).DoAndReturn(
 						func(ctx context.Context, opts pgx.TxOptions, fn func(ctxWithTx context.Context) error) error {
 							return fn(ctx)
 						})
 					return tx
 				},
-				orderRepo: func(ctrl *gomock.Controller) OrderRepoInterface {
-					orderRepo := mocks.NewMockOrderRepoInterface(ctrl)
+				orderRepo: func(ctrl *gomock.Controller) OrderRepo {
+					orderRepo := mocks.NewMockOrderRepo(ctrl)
 					orderRepo.EXPECT().OrderByUser(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, nil)
 					return orderRepo
 				},
-				balanceRepo: func(ctrl *gomock.Controller) BalanceRepoInterface {
-					balanceRepo := mocks.NewMockBalanceRepoInterface(ctrl)
+				balanceRepo: func(ctrl *gomock.Controller) BalanceRepo {
+					balanceRepo := mocks.NewMockBalanceRepo(ctrl)
 					b := entity.Balance{
 						Current: 20100,
 					}
@@ -98,8 +98,8 @@ func TestService_MakeWithdraw(t *testing.T) {
 					balanceRepo.EXPECT().IncreaseWithdraw(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, nil)
 					return balanceRepo
 				},
-				withdrawRepo: func(ctrl *gomock.Controller) RepositoryInterface {
-					withdrawRepo := mocks.NewMockRepositoryInterface(ctrl)
+				withdrawRepo: func(ctrl *gomock.Controller) Repository {
+					withdrawRepo := mocks.NewMockRepository(ctrl)
 					w := entity.Withdrawal{}
 					withdrawRepo.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&w, nil)
 					return withdrawRepo
@@ -139,19 +139,19 @@ func TestService_Withdrawals(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		want    *[]entity.Withdrawal
+		want    []entity.Withdrawal
 		wantErr bool
 	}{
 		{
 			name: "ErrNoRows_Without_Error_In_Result",
 			fields: fields{
-				withdrawRepo: func(ctrl *gomock.Controller) RepositoryInterface {
-					withdrawRepo := mocks.NewMockRepositoryInterface(ctrl)
+				withdrawRepo: func(ctrl *gomock.Controller) Repository {
+					withdrawRepo := mocks.NewMockRepository(ctrl)
 					withdrawRepo.EXPECT().GetWithdrawals(gomock.Any(), gomock.Any()).Return(nil, pgx.ErrNoRows)
 					return withdrawRepo
 				},
 			},
-			want:    &[]entity.Withdrawal{},
+			want:    []entity.Withdrawal{},
 			wantErr: false,
 		},
 	}
@@ -173,28 +173,28 @@ func TestService_Withdrawals(t *testing.T) {
 
 func service(ctrl *gomock.Controller, fields fields) *Service {
 	var (
-		withdrawRepo RepositoryInterface
-		balanceRepo  BalanceRepoInterface
-		orderRepo    OrderRepoInterface
-		tx           db.TxFacadeInterface
+		withdrawRepo Repository
+		balanceRepo  BalanceRepo
+		orderRepo    OrderRepo
+		tx           db.TxFacade
 	)
 	if fields.withdrawRepo == nil {
-		withdrawRepo = mocks.NewMockRepositoryInterface(ctrl)
+		withdrawRepo = mocks.NewMockRepository(ctrl)
 	} else {
 		withdrawRepo = fields.withdrawRepo(ctrl)
 	}
 	if fields.balanceRepo == nil {
-		balanceRepo = mocks.NewMockBalanceRepoInterface(ctrl)
+		balanceRepo = mocks.NewMockBalanceRepo(ctrl)
 	} else {
 		balanceRepo = fields.balanceRepo(ctrl)
 	}
 	if fields.orderRepo == nil {
-		orderRepo = mocks.NewMockOrderRepoInterface(ctrl)
+		orderRepo = mocks.NewMockOrderRepo(ctrl)
 	} else {
 		orderRepo = fields.orderRepo(ctrl)
 	}
 	if fields.pgxTx == nil {
-		tx = dbmocks.NewMockTxFacadeInterface(ctrl)
+		tx = dbmocks.NewMockTxFacade(ctrl)
 	} else {
 		tx = fields.pgxTx(ctrl)
 	}

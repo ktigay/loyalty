@@ -19,8 +19,8 @@ import (
 )
 
 type fields struct {
-	userSv func(ctrl *gomock.Controller) ServiceInterface
-	auth   func(ctrl *gomock.Controller) AuthInterface
+	userSv func(ctrl *gomock.Controller) Service
+	auth   func(ctrl *gomock.Controller) Auth
 }
 
 func TestAuthHandler_LoginHandler(t *testing.T) {
@@ -46,13 +46,13 @@ func TestAuthHandler_LoginHandler(t *testing.T) {
 		{
 			name: "Request_With_StatusOK",
 			fields: fields{
-				userSv: func(ctrl *gomock.Controller) ServiceInterface {
-					userSv := mocks.NewMockServiceInterface(ctrl)
+				userSv: func(ctrl *gomock.Controller) Service {
+					userSv := mocks.NewMockService(ctrl)
 					userSv.EXPECT().UserByCredentials(gomock.Any(), gomock.Any(), gomock.Any()).
 						Times(1).Return(&entity.User{}, nil)
 					return userSv
 				},
-				auth: func(ctrl *gomock.Controller) AuthInterface {
+				auth: func(ctrl *gomock.Controller) Auth {
 					auth := security.NewJWTWrapper("secret")
 					return auth
 				},
@@ -83,8 +83,8 @@ func TestAuthHandler_LoginHandler(t *testing.T) {
 		{
 			name: "Request_With_Error_UserNotFound",
 			fields: fields{
-				userSv: func(ctrl *gomock.Controller) ServiceInterface {
-					userSv := mocks.NewMockServiceInterface(ctrl)
+				userSv: func(ctrl *gomock.Controller) Service {
+					userSv := mocks.NewMockService(ctrl)
 					userSv.EXPECT().UserByCredentials(gomock.Any(), gomock.Any(), gomock.Any()).
 						Times(1).Return(nil, user.ErrUserNotFound)
 					return userSv
@@ -106,8 +106,8 @@ func TestAuthHandler_LoginHandler(t *testing.T) {
 		{
 			name: "Request_With_Error_Wrong_Password",
 			fields: fields{
-				userSv: func(ctrl *gomock.Controller) ServiceInterface {
-					userSv := mocks.NewMockServiceInterface(ctrl)
+				userSv: func(ctrl *gomock.Controller) Service {
+					userSv := mocks.NewMockService(ctrl)
 					userSv.EXPECT().UserByCredentials(gomock.Any(), gomock.Any(), gomock.Any()).
 						Times(1).Return(nil, user.ErrWrongPassword)
 					return userSv
@@ -129,8 +129,8 @@ func TestAuthHandler_LoginHandler(t *testing.T) {
 		{
 			name: "Request_With_Failed_Get_UserByCredentials",
 			fields: fields{
-				userSv: func(ctrl *gomock.Controller) ServiceInterface {
-					userSv := mocks.NewMockServiceInterface(ctrl)
+				userSv: func(ctrl *gomock.Controller) Service {
+					userSv := mocks.NewMockService(ctrl)
 					userSv.EXPECT().UserByCredentials(gomock.Any(), gomock.Any(), gomock.Any()).
 						Times(1).Return(nil, errors.New("some error"))
 					return userSv
@@ -152,14 +152,14 @@ func TestAuthHandler_LoginHandler(t *testing.T) {
 		{
 			name: "Request_With_Failed_Generate_Auth_Token",
 			fields: fields{
-				userSv: func(ctrl *gomock.Controller) ServiceInterface {
-					userSv := mocks.NewMockServiceInterface(ctrl)
+				userSv: func(ctrl *gomock.Controller) Service {
+					userSv := mocks.NewMockService(ctrl)
 					userSv.EXPECT().UserByCredentials(gomock.Any(), gomock.Any(), gomock.Any()).
 						Times(1).Return(&entity.User{}, nil)
 					return userSv
 				},
-				auth: func(ctrl *gomock.Controller) AuthInterface {
-					auth := mocks.NewMockAuthInterface(ctrl)
+				auth: func(ctrl *gomock.Controller) Auth {
+					auth := mocks.NewMockAuth(ctrl)
 					auth.EXPECT().SetIdentity(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(errors.New("some error"))
 					return auth
 				},
@@ -234,13 +234,13 @@ func TestAuthHandler_RegisterHandler(t *testing.T) {
 		{
 			name: "Request_With_StatusOK",
 			fields: fields{
-				userSv: func(ctrl *gomock.Controller) ServiceInterface {
-					userSv := mocks.NewMockServiceInterface(ctrl)
+				userSv: func(ctrl *gomock.Controller) Service {
+					userSv := mocks.NewMockService(ctrl)
 					userSv.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 						Times(1).Return(&entity.User{}, nil)
 					return userSv
 				},
-				auth: func(ctrl *gomock.Controller) AuthInterface {
+				auth: func(ctrl *gomock.Controller) Auth {
 					auth := security.NewJWTWrapper("secret")
 					return auth
 				},
@@ -271,8 +271,8 @@ func TestAuthHandler_RegisterHandler(t *testing.T) {
 		{
 			name: "Request_Create_User_With_Error",
 			fields: fields{
-				userSv: func(ctrl *gomock.Controller) ServiceInterface {
-					userSv := mocks.NewMockServiceInterface(ctrl)
+				userSv: func(ctrl *gomock.Controller) Service {
+					userSv := mocks.NewMockService(ctrl)
 					userSv.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 						Times(1).Return(nil, errors.New("some error"))
 					return userSv
@@ -294,14 +294,14 @@ func TestAuthHandler_RegisterHandler(t *testing.T) {
 		{
 			name: "Request_With_Failed_Generate_Auth_Token",
 			fields: fields{
-				userSv: func(ctrl *gomock.Controller) ServiceInterface {
-					userSv := mocks.NewMockServiceInterface(ctrl)
+				userSv: func(ctrl *gomock.Controller) Service {
+					userSv := mocks.NewMockService(ctrl)
 					userSv.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 						Times(1).Return(&entity.User{}, nil)
 					return userSv
 				},
-				auth: func(ctrl *gomock.Controller) AuthInterface {
-					auth := mocks.NewMockAuthInterface(ctrl)
+				auth: func(ctrl *gomock.Controller) Auth {
+					auth := mocks.NewMockAuth(ctrl)
 					auth.EXPECT().SetIdentity(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(errors.New("some error"))
 					return auth
 				},
@@ -355,16 +355,16 @@ func TestAuthHandler_RegisterHandler(t *testing.T) {
 
 func handler(ctrl *gomock.Controller, fields fields) *AuthHandler {
 	var (
-		userSv ServiceInterface
-		auth   AuthInterface
+		userSv Service
+		auth   Auth
 	)
 	if fields.userSv == nil {
-		userSv = mocks.NewMockServiceInterface(ctrl)
+		userSv = mocks.NewMockService(ctrl)
 	} else {
 		userSv = fields.userSv(ctrl)
 	}
 	if fields.auth == nil {
-		auth = mocks.NewMockAuthInterface(ctrl)
+		auth = mocks.NewMockAuth(ctrl)
 	} else {
 		auth = fields.auth(ctrl)
 	}

@@ -11,10 +11,12 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	_ "github.com/golang/mock/mockgen/model"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/ktigay/loyalty/internal/accrual"
 	"github.com/ktigay/loyalty/internal/api"
 	"github.com/ktigay/loyalty/internal/config"
 	appdb "github.com/ktigay/loyalty/internal/db"
@@ -23,15 +25,19 @@ import (
 	"github.com/ktigay/loyalty/internal/handler/user"
 	applog "github.com/ktigay/loyalty/internal/log"
 	"github.com/ktigay/loyalty/internal/middleware"
+	balancerepo "github.com/ktigay/loyalty/internal/repository/balance"
+	orderrepo "github.com/ktigay/loyalty/internal/repository/order"
+	userrepo "github.com/ktigay/loyalty/internal/repository/user"
+	withdrawrepo "github.com/ktigay/loyalty/internal/repository/withdraw"
 	"github.com/ktigay/loyalty/internal/security"
+	balancesv "github.com/ktigay/loyalty/internal/service/balance"
+	ordersv "github.com/ktigay/loyalty/internal/service/order"
 	"github.com/ktigay/loyalty/internal/service/order/task"
+	usersv "github.com/ktigay/loyalty/internal/service/user"
+	withdrawsv "github.com/ktigay/loyalty/internal/service/withdraw"
 )
 
 func main() {
-	ctx := context.Background()
-	exitCtx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
 	var (
 		cfg    *config.Config
 		logger *slog.Logger
@@ -44,23 +50,37 @@ func main() {
 	}
 
 	logger = applog.New(cfg.LogLevel)
-
 	logger.Debug("config loaded", "config", cfg)
 
+	ctx := context.Background()
+
 	if pool, err = appdb.NewPgxPool(ctx, cfg.DatabaseDSN); err != nil {
-		logger.Error("Failed to create connect to DB", "error", err)
-		os.Exit(1)
+		log.Fatalf("Failed to create connect to DB: %v", err)
 	}
-	if err = appdb.CreateStructure(ctx, pool); err != nil {
-		logger.Error("Failed to create structure", "error", err)
-		os.Exit(1)
+	if err = appdb.CreateSchema(ctx, pool); err != nil {
+		log.Fatalf("Failed to create structure: %v", err)
 	}
 
 	auth := security.NewJWTWrapper(cfg.AuthSecret)
 
-	userAuthHandler := user.NewAuthHandler(auth, pool, logger)
-	balanceHandler := balance.New(pool, logger)
-	orderHandler := order.New(pool, logger)
+	var (
+		txFacade  = appdb.NewPgxTxFacade(pool)
+		dbWrapper = appdb.NewTxConnWrapper(pool)
+
+		userRepo     = userrepo.New(dbWrapper, logger)
+		balanceRepo  = balancerepo.New(dbWrapper, logger)
+		withdrawRepo = withdrawrepo.New(dbWrapper, logger)
+		orderRepo    = orderrepo.New(dbWrapper, logger)
+
+		userSv     = usersv.New(txFacade, userRepo, balanceRepo, logger)
+		balanceSv  = balancesv.New(balanceRepo, logger)
+		withdrawSv = withdrawsv.New(txFacade, withdrawRepo, balanceRepo, orderRepo, logger)
+		orderSv    = ordersv.New(orderRepo, logger)
+
+		userAuthHandler = user.New(auth, userSv, pool, logger)
+		balanceHandler  = balance.New(orderSv, balanceSv, withdrawSv, logger)
+		orderHandler    = order.New(orderSv, logger)
+	)
 
 	apiSrv := api.Server{
 		PostUserLoginHandler:           userAuthHandler.LoginHandler,
@@ -92,8 +112,10 @@ func main() {
 		},
 	}
 
-	var wg sync.WaitGroup
+	exitCtx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
+	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		if err = httpSrv.ListenAndServe(); err != nil {
@@ -107,9 +129,32 @@ func main() {
 		wg.Done()
 	}()
 
+	workerPool := accrual.NewWorkerPoolClient(
+		accrual.New(
+			cfg.AccrualHost,
+			accrual.AccrualRequestTimeout(time.Duration(cfg.AccrualTimeout)*time.Second),
+			logger,
+		),
+		cfg.AccrualMaxRateLimit,
+		logger,
+	)
 	wg.Add(1)
 	go func() {
-		t := task.NewActualizeOrderTask(cfg.AccrualHost, cfg.ActualizeInterval, pool, logger)
+		workerPool.Run(exitCtx)
+		wg.Done()
+	}()
+
+	wg.Add(1)
+	go func() {
+		t := task.NewActualizeOrderTask(
+			workerPool,
+			ordersv.NewAccrualHydrator(),
+			txFacade,
+			orderRepo,
+			balanceRepo,
+			task.ActualizeInterval(time.Duration(cfg.AccrualActualizeInterval)*time.Second),
+			logger,
+		)
 		t.ActualizeOrdersStatus(ctx, exitCtx)
 		wg.Done()
 	}()

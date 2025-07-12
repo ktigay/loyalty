@@ -4,20 +4,17 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ktigay/loyalty/internal/entity"
-	repo "github.com/ktigay/loyalty/internal/repository/balance"
 )
 
-// RepositoryInterface Интерфейс репозитория.
-type RepositoryInterface interface {
+// Repository Интерфейс репозитория.
+type Repository interface {
 	Balance(ctx context.Context, userUUID string) (*entity.Balance, error)
 }
 
 // Service Сервис баланса.
 type Service struct {
-	balanceRepo RepositoryInterface
-	pool        *pgxpool.Pool
+	balanceRepo Repository
 	logger      *slog.Logger
 }
 
@@ -27,10 +24,9 @@ func (s *Service) Balance(ctx context.Context, userUUID string) (*entity.Balance
 }
 
 // New Конструктор.
-func New(pool *pgxpool.Pool, logger *slog.Logger) *Service {
+func New(b Repository, l *slog.Logger) *Service {
 	return &Service{
-		balanceRepo: repo.New(pool, logger),
-		pool:        pool,
-		logger:      logger,
+		balanceRepo: b,
+		logger:      l,
 	}
 }

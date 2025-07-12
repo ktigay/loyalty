@@ -14,7 +14,7 @@ import (
 
 func TestService_Create(t *testing.T) {
 	type fields struct {
-		orderRepo func(ctrl *gomock.Controller) *mocks.MockRepositoryInterface
+		orderRepo func(ctrl *gomock.Controller) *mocks.MockRepository
 	}
 	type args struct {
 		ctx      context.Context
@@ -41,8 +41,8 @@ func TestService_Create(t *testing.T) {
 		{
 			name: "Correct_Order_Number",
 			fields: fields{
-				orderRepo: func(ctrl *gomock.Controller) *mocks.MockRepositoryInterface {
-					orderRepo := mocks.NewMockRepositoryInterface(ctrl)
+				orderRepo: func(ctrl *gomock.Controller) *mocks.MockRepository {
+					orderRepo := mocks.NewMockRepository(ctrl)
 					orderRepo.EXPECT().
 						Order(gomock.Any(), gomock.Any()).
 						Times(1)
@@ -63,8 +63,8 @@ func TestService_Create(t *testing.T) {
 		{
 			name: "Order_Already_Exists_Error",
 			fields: fields{
-				orderRepo: func(ctrl *gomock.Controller) *mocks.MockRepositoryInterface {
-					orderRepo := mocks.NewMockRepositoryInterface(ctrl)
+				orderRepo: func(ctrl *gomock.Controller) *mocks.MockRepository {
+					orderRepo := mocks.NewMockRepository(ctrl)
 					orderRepo.EXPECT().
 						Order(gomock.Any(), gomock.Any()).
 						Times(1).Return(
@@ -91,8 +91,8 @@ func TestService_Create(t *testing.T) {
 		{
 			name: "Wrong_User_Error",
 			fields: fields{
-				orderRepo: func(ctrl *gomock.Controller) *mocks.MockRepositoryInterface {
-					orderRepo := mocks.NewMockRepositoryInterface(ctrl)
+				orderRepo: func(ctrl *gomock.Controller) *mocks.MockRepository {
+					orderRepo := mocks.NewMockRepository(ctrl)
 					orderRepo.EXPECT().
 						Order(gomock.Any(), gomock.Any()).
 						Times(1).Return(
@@ -122,9 +122,9 @@ func TestService_Create(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			var orderRepo *mocks.MockRepositoryInterface
+			var orderRepo *mocks.MockRepository
 			if tt.fields.orderRepo == nil {
-				orderRepo = mocks.NewMockRepositoryInterface(ctrl)
+				orderRepo = mocks.NewMockRepository(ctrl)
 				orderRepo.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 			} else {
 				orderRepo = tt.fields.orderRepo(ctrl)

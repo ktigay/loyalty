@@ -26,7 +26,7 @@ var (
 
 // Repository Репозиторий списаний.
 type Repository struct {
-	db     *db.ConnWrapper
+	db     db.ConnWrapper
 	logger *slog.Logger
 }
 
@@ -48,7 +48,7 @@ func (r *Repository) Create(ctx context.Context, userUUID, orderID string, sum i
 }
 
 // GetWithdrawals Списания баллов.
-func (r *Repository) GetWithdrawals(ctx context.Context, userUUID string) (*[]entity.Withdrawal, error) {
+func (r *Repository) GetWithdrawals(ctx context.Context, userUUID string) ([]entity.Withdrawal, error) {
 	c, cancel := context.WithTimeout(ctx, db.RequestTimeout)
 	defer cancel()
 
@@ -72,7 +72,7 @@ func (r *Repository) GetWithdrawals(ctx context.Context, userUUID string) (*[]en
 		withdrawals = append(withdrawals, w)
 	}
 
-	return &withdrawals, nil
+	return withdrawals, nil
 }
 
 func (r *Repository) fullScan(row pgx.Row, w *entity.Withdrawal) error {
@@ -87,9 +87,9 @@ func (r *Repository) fullScan(row pgx.Row, w *entity.Withdrawal) error {
 }
 
 // New Конструктор.
-func New(conn db.ConnInterface, logger *slog.Logger) *Repository {
+func New(db db.ConnWrapper, l *slog.Logger) *Repository {
 	return &Repository{
-		db:     db.NewConnWrapper(conn),
-		logger: logger,
+		db:     db,
+		logger: l,
 	}
 }

@@ -19,7 +19,7 @@ import (
 )
 
 type fields struct {
-	orderSv func(ctrl *gomock.Controller) ServiceInterface
+	orderSv func(ctrl *gomock.Controller) Service
 }
 
 func TestHandler_CreateOrderHandler(t *testing.T) {
@@ -43,8 +43,8 @@ func TestHandler_CreateOrderHandler(t *testing.T) {
 		{
 			name: "Request_New_Order_With_StatusAccepted",
 			fields: fields{
-				orderSv: func(ctrl *gomock.Controller) ServiceInterface {
-					orderSv := mocks.NewMockServiceInterface(ctrl)
+				orderSv: func(ctrl *gomock.Controller) Service {
+					orderSv := mocks.NewMockService(ctrl)
 
 					orderSv.EXPECT().Create(gomock.Any(), gomock.Any(), entity.Number("111113333")).
 						Times(1).Return(&entity.Order{}, nil)
@@ -61,8 +61,8 @@ func TestHandler_CreateOrderHandler(t *testing.T) {
 		{
 			name: "Request_Exists_Order_With_StatusOK",
 			fields: fields{
-				orderSv: func(ctrl *gomock.Controller) ServiceInterface {
-					orderSv := mocks.NewMockServiceInterface(ctrl)
+				orderSv: func(ctrl *gomock.Controller) Service {
+					orderSv := mocks.NewMockService(ctrl)
 
 					orderSv.EXPECT().Create(gomock.Any(), gomock.Any(), entity.Number("111113333")).
 						Times(1).Return(nil, order.ErrOrderAlreadyExists)
@@ -79,8 +79,8 @@ func TestHandler_CreateOrderHandler(t *testing.T) {
 		{
 			name: "Request_Order_With_Wrong_Number",
 			fields: fields{
-				orderSv: func(ctrl *gomock.Controller) ServiceInterface {
-					orderSv := mocks.NewMockServiceInterface(ctrl)
+				orderSv: func(ctrl *gomock.Controller) Service {
+					orderSv := mocks.NewMockService(ctrl)
 
 					orderSv.EXPECT().Create(gomock.Any(), gomock.Any(), entity.Number("111113333")).
 						Times(1).Return(nil, order.ErrWrongOrderNumber)
@@ -97,8 +97,8 @@ func TestHandler_CreateOrderHandler(t *testing.T) {
 		{
 			name: "Request_With_Wrong_User",
 			fields: fields{
-				orderSv: func(ctrl *gomock.Controller) ServiceInterface {
-					orderSv := mocks.NewMockServiceInterface(ctrl)
+				orderSv: func(ctrl *gomock.Controller) Service {
+					orderSv := mocks.NewMockService(ctrl)
 
 					orderSv.EXPECT().Create(gomock.Any(), gomock.Any(), entity.Number("111113333")).
 						Times(1).Return(nil, order.ErrWrongUser)
@@ -115,8 +115,8 @@ func TestHandler_CreateOrderHandler(t *testing.T) {
 		{
 			name: "Request_With_Unknown_Error",
 			fields: fields{
-				orderSv: func(ctrl *gomock.Controller) ServiceInterface {
-					orderSv := mocks.NewMockServiceInterface(ctrl)
+				orderSv: func(ctrl *gomock.Controller) Service {
+					orderSv := mocks.NewMockService(ctrl)
 
 					orderSv.EXPECT().Create(gomock.Any(), gomock.Any(), entity.Number("111113333")).
 						Times(1).Return(nil, errors.New("unknown error"))
@@ -180,8 +180,8 @@ func TestHandler_GetOrdersHandler(t *testing.T) {
 		{
 			name: "Request_With_StatusOK",
 			fields: fields{
-				orderSv: func(ctrl *gomock.Controller) ServiceInterface {
-					orderSv := mocks.NewMockServiceInterface(ctrl)
+				orderSv: func(ctrl *gomock.Controller) Service {
+					orderSv := mocks.NewMockService(ctrl)
 					e := []entity.Order{
 						{
 							OrderID: order1,
@@ -204,7 +204,7 @@ func TestHandler_GetOrdersHandler(t *testing.T) {
 					}
 
 					orderSv.EXPECT().OrdersByUser(gomock.Any(), gomock.Any()).
-						Times(1).Return(&e, nil)
+						Times(1).Return(e, nil)
 					return orderSv
 				},
 			},
@@ -217,8 +217,8 @@ func TestHandler_GetOrdersHandler(t *testing.T) {
 		{
 			name: "Request_With_OrdersByUser_Failed",
 			fields: fields{
-				orderSv: func(ctrl *gomock.Controller) ServiceInterface {
-					orderSv := mocks.NewMockServiceInterface(ctrl)
+				orderSv: func(ctrl *gomock.Controller) Service {
+					orderSv := mocks.NewMockService(ctrl)
 					orderSv.EXPECT().OrdersByUser(gomock.Any(), gomock.Any()).
 						Times(1).Return(nil, errors.New("some error"))
 					return orderSv
@@ -231,8 +231,8 @@ func TestHandler_GetOrdersHandler(t *testing.T) {
 		{
 			name: "Request_With_Empty_Response",
 			fields: fields{
-				orderSv: func(ctrl *gomock.Controller) ServiceInterface {
-					orderSv := mocks.NewMockServiceInterface(ctrl)
+				orderSv: func(ctrl *gomock.Controller) Service {
+					orderSv := mocks.NewMockService(ctrl)
 					orderSv.EXPECT().OrdersByUser(gomock.Any(), gomock.Any()).
 						Times(1).Return(nil, nil)
 					return orderSv
@@ -283,9 +283,9 @@ func TestHandler_GetOrdersHandler(t *testing.T) {
 }
 
 func handler(ctrl *gomock.Controller, fields fields) *Handler {
-	var orderSv ServiceInterface
+	var orderSv Service
 	if fields.orderSv == nil {
-		orderSv = mocks.NewMockServiceInterface(ctrl)
+		orderSv = mocks.NewMockService(ctrl)
 	} else {
 		orderSv = fields.orderSv(ctrl)
 	}

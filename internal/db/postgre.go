@@ -16,7 +16,7 @@ import (
 const (
 	connTimeout    = 1 * time.Second
 	RequestTimeout = 1 * time.Second
-	structurePath  = "./internal/db/structure.sql"
+	schemaPath     = "./internal/db/schema.sql"
 )
 
 // NewPgxPool Новый пул соединений к БД.
@@ -35,12 +35,12 @@ func NewPgxPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-// CreateStructure создает структуру БД.
-func CreateStructure(ctx context.Context, pool *pgxpool.Pool) error {
+// CreateSchema создает структуру БД.
+func CreateSchema(ctx context.Context, pool *pgxpool.Pool) error {
 	c, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	file, err := os.OpenFile(structurePath, os.O_RDONLY, 0o644)
+	file, err := os.OpenFile(schemaPath, os.O_RDONLY, 0o644)
 	if err != nil {
 		return err
 	}
@@ -63,8 +63,13 @@ func CreateStructure(ctx context.Context, pool *pgxpool.Pool) error {
 	return nil
 }
 
-// ConnInterface Интерфейс для работы с БД.
-type ConnInterface interface {
+// ConnWrapper Интерфейс обертки для коннекта БД.
+type ConnWrapper interface {
+	Connection(ctx context.Context) Conn
+}
+
+// Conn Интерфейс для работы с БД.
+type Conn interface {
 	SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults
 	Exec(ctx context.Context, sql string, arguments ...any) (commandTag pgconn.CommandTag, err error)
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)

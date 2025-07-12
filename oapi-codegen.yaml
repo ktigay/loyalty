@@ -8,6 +8,7 @@ import-mapping:
   ../../server.yaml: api/openapi/server.yaml
 
 output-options:
+  skip-prune: true
   user-templates:
     constants.tmpl: ./internal/api/templates/constants.tmpl
     gorilla/gorilla-interface.tmpl: ./internal/api/templates/gorilla-interface.tmpl

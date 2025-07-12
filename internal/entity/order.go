@@ -3,18 +3,16 @@ package entity
 import (
 	"strconv"
 	"time"
-
-	"github.com/ktigay/loyalty/internal/api"
 )
 
 // OrderStatus Статус заказа.
 type OrderStatus string
 
 const (
-	NEW        OrderStatus = "NEW"
-	PROCESSING OrderStatus = "PROCESSING"
-	INVALID    OrderStatus = "INVALID"
-	PROCESSED  OrderStatus = "PROCESSED"
+	New        OrderStatus = "NEW"
+	Processing OrderStatus = "PROCESSING"
+	Invalid    OrderStatus = "INVALID"
+	Processed  OrderStatus = "PROCESSED"
 )
 
 // Order Сущность заказа.
@@ -26,21 +24,6 @@ type Order struct {
 	Accrual     *int64
 	UploadedAt  time.Time
 	ProcessedAt time.Time
-}
-
-// ToAPI В Api.
-func (o Order) ToAPI() api.Order {
-	var accrual *float64
-	if o.Accrual != nil {
-		v := float64(*o.Accrual) / 100
-		accrual = &v
-	}
-	return api.Order{
-		Accrual:    accrual,
-		Number:     o.OrderID,
-		Status:     api.OrderStatus(o.Status),
-		UploadedAt: o.UploadedAt.Format(time.RFC3339),
-	}
 }
 
 // Number Номер.

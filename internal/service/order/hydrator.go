@@ -10,7 +10,7 @@ import (
 type AccrualHydrator struct{}
 
 // Hydrate Гидрирует сущности заказов данными из сервиса accrual.
-func (a AccrualHydrator) Hydrate(orders []entity.Order, acc []entity.Accrual) (*[]entity.Order, error) {
+func (a AccrualHydrator) Hydrate(orders []entity.Order, acc []entity.AccrualOrder) ([]entity.Order, error) {
 	ln := len(orders)
 
 	accMap := make(map[string]*entity.Order, ln)
@@ -32,19 +32,19 @@ func (a AccrualHydrator) Hydrate(orders []entity.Order, acc []entity.Accrual) (*
 		}
 	}
 
-	return &orders, nil
+	return orders, nil
 }
 
 func mapStatus(accStatus string) entity.OrderStatus {
 	switch accStatus {
 	case "INVALID":
-		return entity.INVALID
+		return entity.Invalid
 	case "PROCESSING":
-		return entity.PROCESSING
+		return entity.Processing
 	case "PROCESSED":
-		return entity.PROCESSED
+		return entity.Processed
 	}
-	return entity.NEW
+	return entity.New
 }
 
 // NewAccrualHydrator Конструктор.

@@ -15,10 +15,10 @@ import (
 )
 
 type fields struct {
-	statusGetter func(ctrl *gomock.Controller) StatusGetterInterface
-	orderRepo    func(ctrl *gomock.Controller) OrderRepoInterface
-	balanceRepo  func(ctrl *gomock.Controller) BalanceRepoInterface
-	pgxTx        func(ctrl *gomock.Controller) db.TxFacadeInterface
+	statusGetter func(ctrl *gomock.Controller) StatusGetter
+	orderRepo    func(ctrl *gomock.Controller) OrderRepo
+	balanceRepo  func(ctrl *gomock.Controller) BalanceRepo
+	pgxTx        func(ctrl *gomock.Controller) db.TxFacade
 }
 
 func TestActualizeOrderTask_ActualizeOrdersStatus(t *testing.T) {
@@ -56,43 +56,43 @@ func TestActualizeOrderTask_ActualizeOrdersStatus(t *testing.T) {
 		{
 			name: "Transaction_Success_With_Partial_Update",
 			fields: fields{
-				pgxTx: func(ctrl *gomock.Controller) db.TxFacadeInterface {
-					tx := dbmocks.NewMockTxFacadeInterface(ctrl)
+				pgxTx: func(ctrl *gomock.Controller) db.TxFacade {
+					tx := dbmocks.NewMockTxFacade(ctrl)
 					tx.EXPECT().RunInTx(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).DoAndReturn(
 						func(ctx context.Context, opts pgx.TxOptions, fn func(ctxWithTx context.Context) error) error {
 							return fn(ctx)
 						})
 					return tx
 				},
-				statusGetter: func(ctrl *gomock.Controller) StatusGetterInterface {
-					statusGetter := mocks.NewMockStatusGetterInterface(ctrl)
+				statusGetter: func(ctrl *gomock.Controller) StatusGetter {
+					statusGetter := mocks.NewMockStatusGetter(ctrl)
 					statusGetter.EXPECT().ReceiveStatus(gomock.Any(), gomock.Any()).Times(1).DoAndReturn(
-						func(ctx context.Context, o []entity.Order) (*[]entity.Order, error) {
-							return &o, nil
+						func(ctx context.Context, o []entity.Order) ([]entity.Order, error) {
+							return o, nil
 						},
 					)
 					return statusGetter
 				},
-				orderRepo: func(ctrl *gomock.Controller) OrderRepoInterface {
-					orderRepo := mocks.NewMockOrderRepoInterface(ctrl)
+				orderRepo: func(ctrl *gomock.Controller) OrderRepo {
+					orderRepo := mocks.NewMockOrderRepo(ctrl)
 					orders := []entity.Order{
 						order1,
 						order2,
 						orders3,
 						orders4,
 					}
-					orderRepo.EXPECT().OrdersByStatus(gomock.Any(), gomock.Any()).Times(1).Return(&orders, nil)
+					orderRepo.EXPECT().OrdersByStatus(gomock.Any(), gomock.Any()).Times(1).Return(orders, nil)
 
 					orderRepo.EXPECT().UpdateAll(gomock.Any(), gomock.Any()).Times(1).DoAndReturn(
-						func(ctx context.Context, o []entity.Order) (*[]entity.Order, error) {
-							return &o, nil
+						func(ctx context.Context, o []entity.Order) ([]entity.Order, error) {
+							return o, nil
 						},
 					)
 					return orderRepo
 				},
-				balanceRepo: func(ctrl *gomock.Controller) BalanceRepoInterface {
-					balanceRepo := mocks.NewMockBalanceRepoInterface(ctrl)
-					// Обновляются заказы с Accrual != null и соответствующим статусом.
+				balanceRepo: func(ctrl *gomock.Controller) BalanceRepo {
+					balanceRepo := mocks.NewMockBalanceRepo(ctrl)
+					// Обновляются заказы с AccrualOrder != null и соответствующим статусом.
 					balanceRepo.EXPECT().IncreaseCurrent(gomock.Any(), gomock.Any(), gomock.Any()).Times(3).Return(&entity.Balance{}, nil)
 					return balanceRepo
 				},
@@ -101,43 +101,43 @@ func TestActualizeOrderTask_ActualizeOrdersStatus(t *testing.T) {
 		{
 			name: "Transaction_Success_With_Full_Update",
 			fields: fields{
-				pgxTx: func(ctrl *gomock.Controller) db.TxFacadeInterface {
-					tx := dbmocks.NewMockTxFacadeInterface(ctrl)
+				pgxTx: func(ctrl *gomock.Controller) db.TxFacade {
+					tx := dbmocks.NewMockTxFacade(ctrl)
 					tx.EXPECT().RunInTx(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).DoAndReturn(
 						func(ctx context.Context, opts pgx.TxOptions, fn func(ctxWithTx context.Context) error) error {
 							return fn(ctx)
 						})
 					return tx
 				},
-				statusGetter: func(ctrl *gomock.Controller) StatusGetterInterface {
-					statusGetter := mocks.NewMockStatusGetterInterface(ctrl)
+				statusGetter: func(ctrl *gomock.Controller) StatusGetter {
+					statusGetter := mocks.NewMockStatusGetter(ctrl)
 					statusGetter.EXPECT().ReceiveStatus(gomock.Any(), gomock.Any()).Times(1).DoAndReturn(
-						func(ctx context.Context, o []entity.Order) (*[]entity.Order, error) {
-							return &o, nil
+						func(ctx context.Context, o []entity.Order) ([]entity.Order, error) {
+							return o, nil
 						},
 					)
 					return statusGetter
 				},
-				orderRepo: func(ctrl *gomock.Controller) OrderRepoInterface {
-					orderRepo := mocks.NewMockOrderRepoInterface(ctrl)
+				orderRepo: func(ctrl *gomock.Controller) OrderRepo {
+					orderRepo := mocks.NewMockOrderRepo(ctrl)
 					orders := []entity.Order{
 						order1,
 						order2,
 						orders3,
 						orders4,
 					}
-					orderRepo.EXPECT().OrdersByStatus(gomock.Any(), gomock.Any()).Times(1).Return(&orders, nil)
+					orderRepo.EXPECT().OrdersByStatus(gomock.Any(), gomock.Any()).Times(1).Return(orders, nil)
 
 					orderRepo.EXPECT().UpdateAll(gomock.Any(), gomock.Any()).Times(1).DoAndReturn(
-						func(ctx context.Context, o []entity.Order) (*[]entity.Order, error) {
-							return &o, nil
+						func(ctx context.Context, o []entity.Order) ([]entity.Order, error) {
+							return o, nil
 						},
 					)
 					return orderRepo
 				},
-				balanceRepo: func(ctrl *gomock.Controller) BalanceRepoInterface {
-					balanceRepo := mocks.NewMockBalanceRepoInterface(ctrl)
-					// Обновляются заказы с Accrual != null и соответствующим статусом.
+				balanceRepo: func(ctrl *gomock.Controller) BalanceRepo {
+					balanceRepo := mocks.NewMockBalanceRepo(ctrl)
+					// Обновляются заказы с AccrualOrder != null и соответствующим статусом.
 					balanceRepo.EXPECT().IncreaseCurrent(gomock.Any(), gomock.Any(), gomock.Any()).Times(3).Return(&entity.Balance{}, nil)
 					return balanceRepo
 				},
@@ -146,19 +146,19 @@ func TestActualizeOrderTask_ActualizeOrdersStatus(t *testing.T) {
 		{
 			name: "Transaction_With_Rollback",
 			fields: fields{
-				pgxTx: func(ctrl *gomock.Controller) db.TxFacadeInterface {
-					tx := dbmocks.NewMockTxFacadeInterface(ctrl)
+				pgxTx: func(ctrl *gomock.Controller) db.TxFacade {
+					tx := dbmocks.NewMockTxFacade(ctrl)
 					tx.EXPECT().RunInTx(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).DoAndReturn(
 						func(ctx context.Context, opts pgx.TxOptions, fn func(ctxWithTx context.Context) error) error {
 							return fn(ctx)
 						})
 					return tx
 				},
-				statusGetter: func(ctrl *gomock.Controller) StatusGetterInterface {
-					statusGetter := mocks.NewMockStatusGetterInterface(ctrl)
+				statusGetter: func(ctrl *gomock.Controller) StatusGetter {
+					statusGetter := mocks.NewMockStatusGetter(ctrl)
 					statusGetter.EXPECT().ReceiveStatus(gomock.Any(), gomock.Any()).Times(1).DoAndReturn(
-						func(ctx context.Context, o []entity.Order) (*[]entity.Order, error) {
-							return &[]entity.Order{
+						func(ctx context.Context, o []entity.Order) ([]entity.Order, error) {
+							return []entity.Order{
 								order1,
 								order2,
 								orders3,
@@ -168,10 +168,16 @@ func TestActualizeOrderTask_ActualizeOrdersStatus(t *testing.T) {
 					)
 					return statusGetter
 				},
-				orderRepo: func(ctrl *gomock.Controller) OrderRepoInterface {
-					orderRepo := mocks.NewMockOrderRepoInterface(ctrl)
+				orderRepo: func(ctrl *gomock.Controller) OrderRepo {
+					orderRepo := mocks.NewMockOrderRepo(ctrl)
 					orderRepo.EXPECT().UpdateAll(gomock.Any(), gomock.Any()).Times(1).Return(nil, fmt.Errorf("error"))
-					orderRepo.EXPECT().OrdersByStatus(gomock.Any(), gomock.Any()).Times(1).Return(&[]entity.Order{}, nil)
+					orderRepo.EXPECT().
+						OrdersByStatus(gomock.Any(), gomock.Any()).Times(1).
+						Return([]entity.Order{
+							{
+								ID: 1,
+							},
+						}, nil)
 
 					return orderRepo
 				},
@@ -191,28 +197,28 @@ func TestActualizeOrderTask_ActualizeOrdersStatus(t *testing.T) {
 
 func service(ctrl *gomock.Controller, fields fields) *ActualizeOrderTask {
 	var (
-		statusGetter StatusGetterInterface
-		orderRepo    OrderRepoInterface
-		balanceRepo  BalanceRepoInterface
-		tx           db.TxFacadeInterface
+		statusGetter StatusGetter
+		orderRepo    OrderRepo
+		balanceRepo  BalanceRepo
+		tx           db.TxFacade
 	)
 	if fields.statusGetter == nil {
-		statusGetter = mocks.NewMockStatusGetterInterface(ctrl)
+		statusGetter = mocks.NewMockStatusGetter(ctrl)
 	} else {
 		statusGetter = fields.statusGetter(ctrl)
 	}
 	if fields.orderRepo == nil {
-		orderRepo = mocks.NewMockOrderRepoInterface(ctrl)
+		orderRepo = mocks.NewMockOrderRepo(ctrl)
 	} else {
 		orderRepo = fields.orderRepo(ctrl)
 	}
 	if fields.balanceRepo == nil {
-		balanceRepo = mocks.NewMockBalanceRepoInterface(ctrl)
+		balanceRepo = mocks.NewMockBalanceRepo(ctrl)
 	} else {
 		balanceRepo = fields.balanceRepo(ctrl)
 	}
 	if fields.pgxTx == nil {
-		tx = dbmocks.NewMockTxFacadeInterface(ctrl)
+		tx = dbmocks.NewMockTxFacade(ctrl)
 	} else {
 		tx = fields.pgxTx(ctrl)
 	}

@@ -13,25 +13,25 @@ import (
 	"github.com/ktigay/loyalty/internal/service/user"
 )
 
-// AuthInterface Интерфейс сервиса аутентификации.
+// Auth Интерфейс сервиса аутентификации.
 //
-//go:generate mockgen -destination=./mocks/mock_auth.go -package=mocks github.com/ktigay/loyalty/internal/handler/user AuthInterface
-type AuthInterface interface {
+//go:generate mockgen -destination=./mocks/mock_auth.go -package=mocks github.com/ktigay/loyalty/internal/handler/user Auth
+type Auth interface {
 	SetIdentity(r *http.Request, w http.ResponseWriter, identity *entity.Identity) error
 }
 
-// ServiceInterface Интерфейс сервиса пользователей.
+// Service Интерфейс сервиса пользователей.
 //
-//go:generate mockgen -destination=./mocks/mock_service.go -package=mocks github.com/ktigay/loyalty/internal/handler/user ServiceInterface
-type ServiceInterface interface {
+//go:generate mockgen -destination=./mocks/mock_service.go -package=mocks github.com/ktigay/loyalty/internal/handler/user Service
+type Service interface {
 	UserByCredentials(ctx context.Context, login, password string) (*entity.User, error)
 	Create(ctx context.Context, login, password string) (*entity.User, error)
 }
 
 // AuthHandler Обработчик пользователей.
 type AuthHandler struct {
-	userSv ServiceInterface
-	auth   AuthInterface
+	userSv Service
+	auth   Auth
 	logger *slog.Logger
 }
 
@@ -96,10 +96,10 @@ func (h *AuthHandler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// NewAuthHandler Конструктор.
-func NewAuthHandler(auth AuthInterface, pool *pgxpool.Pool, logger *slog.Logger) *AuthHandler {
+// New Конструктор.
+func New(auth Auth, u Service, pool *pgxpool.Pool, logger *slog.Logger) *AuthHandler {
 	return &AuthHandler{
-		userSv: user.New(pool, logger),
+		userSv: u,
 		auth:   auth,
 		logger: logger,
 	}

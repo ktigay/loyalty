@@ -15,14 +15,14 @@ import (
 	"github.com/ktigay/loyalty/internal/security"
 )
 
-// AuthInterface Интерфейс сервиса аутентификации.
-type AuthInterface interface {
+// Auth Интерфейс сервиса аутентификации.
+type Auth interface {
 	GetIdentity(r *http.Request) (*entity.Identity, error)
 }
 
 // Middleware Мидлвар.
 type Middleware struct {
-	auth   AuthInterface
+	auth   Auth
 	logger *slog.Logger
 }
 
@@ -81,7 +81,12 @@ func (m *Middleware) WithLogging(next http.Handler) http.Handler {
 
 		start := time.Now()
 
-		b, _ := io.ReadAll(r.Body)
+		b, err := io.ReadAll(r.Body)
+		if err != nil && !errors.Is(err, io.EOF) {
+			m.logger.Error("Error reading body", "err", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 		r.Body = io.NopCloser(bytes.NewBuffer(b))
 
 		m.logger.Info(
@@ -105,7 +110,7 @@ func (m *Middleware) WithLogging(next http.Handler) http.Handler {
 }
 
 // New Конструктор.
-func New(auth AuthInterface, logger *slog.Logger) *Middleware {
+func New(auth Auth, logger *slog.Logger) *Middleware {
 	return &Middleware{
 		auth:   auth,
 		logger: logger,

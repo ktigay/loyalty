@@ -6,46 +6,44 @@ import (
 	"log/slog"
 
 	"github.com/jackc/pgx/v5"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ktigay/loyalty/internal/entity"
-	repo "github.com/ktigay/loyalty/internal/repository/order"
 )
 
 var (
 	ErrWrongOrderNumber   = errors.New("wrong order number")
 	ErrWrongUser          = errors.New("wrong user order")
 	ErrOrderAlreadyExists = errors.New("order already exists")
+	ErrOrdersNotFound     = errors.New("orders not found")
 )
 
-// AccrualClientInterface Интерфейс сервиса Accrual.
+// OrdersGetter Интерфейс сервиса AccrualOrder.
 //
-//go:generate mockgen -destination=./mocks/mock_accrual.go -package=mocks github.com/ktigay/loyalty/internal/service/order AccrualClientInterface
-type AccrualClientInterface interface {
-	OrdersStatus(ctx context.Context, orderIDs []string) (*[]entity.Accrual, error)
+//go:generate mockgen -destination=./mocks/mock_accrual.go -package=mocks github.com/ktigay/loyalty/internal/service/order OrdersGetter
+type OrdersGetter interface {
+	GetOrders(ctx context.Context, ids ...string) ([]entity.AccrualOrder, error)
 }
 
-// HydratorInterface Интерфейс гидратора.
+// Hydrator Интерфейс гидратора.
 //
-//go:generate mockgen -destination=./mocks/mock_hydrator.go -package=mocks github.com/ktigay/loyalty/internal/service/order HydratorInterface
-type HydratorInterface interface {
-	Hydrate(e []entity.Order, acc []entity.Accrual) (*[]entity.Order, error)
+//go:generate mockgen -destination=./mocks/mock_hydrator.go -package=mocks github.com/ktigay/loyalty/internal/service/order Hydrator
+type Hydrator interface {
+	Hydrate(e []entity.Order, acc []entity.AccrualOrder) ([]entity.Order, error)
 }
 
-// RepositoryInterface Интерфейс репозитория.
+// Repository Интерфейс репозитория.
 //
-//go:generate mockgen -destination=./mocks/mock_orderrepo.go -package=mocks github.com/ktigay/loyalty/internal/service/order RepositoryInterface
-type RepositoryInterface interface {
+//go:generate mockgen -destination=./mocks/mock_orderrepo.go -package=mocks github.com/ktigay/loyalty/internal/service/order Repository
+type Repository interface {
 	Order(ctx context.Context, orderID string) (*entity.Order, error)
 	Create(ctx context.Context, userUUID, orderID string) (*entity.Order, error)
-	UpdateAll(ctx context.Context, orders []entity.Order) (*[]entity.Order, error)
-	OrdersByUser(ctx context.Context, userUUID string) (*[]entity.Order, error)
-	OrdersByStatus(ctx context.Context, st ...entity.OrderStatus) (*[]entity.Order, error)
+	UpdateAll(ctx context.Context, orders []entity.Order) ([]entity.Order, error)
+	OrdersByUser(ctx context.Context, userUUID string) ([]entity.Order, error)
+	OrdersByStatus(ctx context.Context, st ...entity.OrderStatus) ([]entity.Order, error)
 }
 
 // Service Сервис заказов.
 type Service struct {
-	orderRepo RepositoryInterface
+	orderRepo Repository
 	logger    *slog.Logger
 }
 
@@ -76,11 +74,11 @@ func (s *Service) Create(ctx context.Context, userUUID string, orderID entity.Nu
 }
 
 // OrdersByUser Заказы пользователя.
-func (s *Service) OrdersByUser(ctx context.Context, userUUID string) (*[]entity.Order, error) {
+func (s *Service) OrdersByUser(ctx context.Context, userUUID string) ([]entity.Order, error) {
 	orders, err := s.orderRepo.OrdersByUser(ctx, userUUID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return &[]entity.Order{}, nil
+			return nil, ErrOrdersNotFound
 		}
 		return nil, err
 	}
@@ -88,35 +86,35 @@ func (s *Service) OrdersByUser(ctx context.Context, userUUID string) (*[]entity.
 }
 
 // OrdersByStatus Заказы по статусам.
-func (s *Service) OrdersByStatus(ctx context.Context, st ...entity.OrderStatus) (*[]entity.Order, error) {
+func (s *Service) OrdersByStatus(ctx context.Context, st ...entity.OrderStatus) ([]entity.Order, error) {
 	return s.orderRepo.OrdersByStatus(ctx, st...)
 }
 
 // UpdateAll Сохранение заказов.
-func (s *Service) UpdateAll(ctx context.Context, orders []entity.Order) (*[]entity.Order, error) {
+func (s *Service) UpdateAll(ctx context.Context, orders []entity.Order) ([]entity.Order, error) {
 	return s.orderRepo.UpdateAll(ctx, orders)
 }
 
 // New Конструктор.
-func New(pool *pgxpool.Pool, logger *slog.Logger) *Service {
+func New(o Repository, l *slog.Logger) *Service {
 	return &Service{
-		orderRepo: repo.New(pool, logger),
-		logger:    logger,
+		orderRepo: o,
+		logger:    l,
 	}
 }
 
 // StatusGetterService Сервис актуализации статусов заказов.
 type StatusGetterService struct {
-	client   AccrualClientInterface
-	hydrator HydratorInterface
+	client   OrdersGetter
+	hydrator Hydrator
 	logger   *slog.Logger
 }
 
 // ReceiveStatus Получение новых статусов заказов.
-func (s *StatusGetterService) ReceiveStatus(ctx context.Context, orders []entity.Order) (*[]entity.Order, error) {
+func (s *StatusGetterService) ReceiveStatus(ctx context.Context, orders []entity.Order) ([]entity.Order, error) {
 	var (
-		updated *[]entity.Order
-		acc     *[]entity.Accrual
+		updated []entity.Order
+		acc     []entity.AccrualOrder
 		err     error
 	)
 
@@ -124,15 +122,12 @@ func (s *StatusGetterService) ReceiveStatus(ctx context.Context, orders []entity
 	for _, o := range orders {
 		ids = append(ids, o.OrderID)
 	}
-	if acc, err = s.client.OrdersStatus(ctx, ids); err != nil {
+	if acc, err = s.client.GetOrders(ctx, ids...); err != nil {
 		s.logger.Error("Getting orders info finished with", "err", err)
-	}
-	if acc == nil || len(*acc) == 0 {
-		s.logger.Debug("Getting orders info finished with no accrual")
-		return nil, nil
+		return nil, err
 	}
 
-	updated, err = s.hydrator.Hydrate(orders, *acc)
+	updated, err = s.hydrator.Hydrate(orders, acc)
 	if err != nil {
 		return nil, err
 	}
@@ -141,10 +136,10 @@ func (s *StatusGetterService) ReceiveStatus(ctx context.Context, orders []entity
 }
 
 // NewStatusGetterService Конструктор.
-func NewStatusGetterService(client AccrualClientInterface, logger *slog.Logger) *StatusGetterService {
+func NewStatusGetterService(c OrdersGetter, h Hydrator, l *slog.Logger) *StatusGetterService {
 	return &StatusGetterService{
-		client:   client,
-		hydrator: NewAccrualHydrator(),
-		logger:   logger,
+		client:   c,
+		hydrator: h,
+		logger:   l,
 	}
 }

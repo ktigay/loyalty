@@ -8,11 +8,8 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ktigay/loyalty/internal/db"
 	"github.com/ktigay/loyalty/internal/entity"
-	"github.com/ktigay/loyalty/internal/repository/balance"
-	repo "github.com/ktigay/loyalty/internal/repository/user"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -26,23 +23,23 @@ var (
 	ErrWrongPassword   = errors.New("wrong password")
 )
 
-//go:generate mockgen -destination=./mocks/mock_user.go -package=mocks github.com/ktigay/loyalty/internal/service/user RepositoryInterface
-type RepositoryInterface interface {
+//go:generate mockgen -destination=./mocks/mock_user.go -package=mocks github.com/ktigay/loyalty/internal/service/user Repository
+type Repository interface {
 	UserByID(ctx context.Context, uuid string) (*entity.User, error)
 	UserByLogin(ctx context.Context, login string) (*entity.User, error)
 	CreateUser(ctx context.Context, login, password string) (*entity.User, error)
 }
 
-//go:generate mockgen -destination=./mocks/mock_balance.go -package=mocks github.com/ktigay/loyalty/internal/service/user BalanceRepoInterface
-type BalanceRepoInterface interface {
+//go:generate mockgen -destination=./mocks/mock_balance.go -package=mocks github.com/ktigay/loyalty/internal/service/user BalanceRepo
+type BalanceRepo interface {
 	Create(ctx context.Context, userUUID string) error
 }
 
 // Service Сервис для работы с пользовательскими данными.
 type Service struct {
-	userRepo    RepositoryInterface
-	balanceRepo BalanceRepoInterface
-	pgxTx       db.TxFacadeInterface
+	userRepo    Repository
+	balanceRepo BalanceRepo
+	pgxTx       db.TxFacade
 	logger      *slog.Logger
 }
 
@@ -97,13 +94,14 @@ func (s *Service) Create(ctx context.Context, login, password string) (*entity.U
 	}
 
 	var newUsr *entity.User
-	_ = s.pgxTx.RunInTx(ctx, pgx.TxOptions{}, func(ctxWithTx context.Context) error {
-		if newUsr, err = s.userRepo.CreateUser(ctxWithTx, login, string(hashedPasswd)); err != nil {
-			return err
+	err = s.pgxTx.RunInTx(ctx, pgx.TxOptions{}, func(ctxWithTx context.Context) error {
+		var txErr error
+		if newUsr, txErr = s.userRepo.CreateUser(ctxWithTx, login, string(hashedPasswd)); txErr != nil {
+			return txErr
 		}
 
-		if err = s.balanceRepo.Create(ctxWithTx, newUsr.UUID); err != nil {
-			return err
+		if txErr = s.balanceRepo.Create(ctxWithTx, newUsr.UUID); txErr != nil {
+			return txErr
 		}
 		return nil
 	})
@@ -111,7 +109,7 @@ func (s *Service) Create(ctx context.Context, login, password string) (*entity.U
 		return nil, err
 	}
 
-	return newUsr, nil
+	return newUsr, err
 }
 
 // GetUserByID Возвращает пользователя по uuid
@@ -120,11 +118,11 @@ func (s *Service) GetUserByID(ctx context.Context, uuid string) (*entity.User, e
 }
 
 // New Конструктор.
-func New(pool *pgxpool.Pool, logger *slog.Logger) *Service {
+func New(t db.TxFacade, u Repository, b BalanceRepo, l *slog.Logger) *Service {
 	return &Service{
-		userRepo:    repo.New(pool, logger),
-		balanceRepo: balance.New(pool, logger),
-		pgxTx:       db.NewPgxTxFacade(pool),
-		logger:      logger,
+		pgxTx:       t,
+		userRepo:    u,
+		balanceRepo: b,
+		logger:      l,
 	}
 }

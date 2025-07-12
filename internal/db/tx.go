@@ -11,16 +11,18 @@ import (
 type dbKey int
 
 const (
-	TxInContext dbKey = iota
+	txInContext dbKey = iota
 )
 
-// TxFacadeInterface Интерфейс для работы с транзакциями.
+// TxFacade Интерфейс для работы с транзакциями.
 //
-//go:generate mockgen -destination=./mocks/mock_tx.go -package=mocks github.com/ktigay/loyalty/internal/db TxFacadeInterface
-type TxFacadeInterface interface {
+//go:generate mockgen -destination=./mocks/mock_tx.go -package=mocks github.com/ktigay/loyalty/internal/db TxFacade
+type TxFacade interface {
 	RunInTx(ctx context.Context, opts pgx.TxOptions, fn func(ctxWithTx context.Context) error) error
 }
 
+// PgxConn Интерфейс pgx для работы с транзакциями.
+//
 //go:generate mockgen -destination=./mocks/mock_conn.go -package=mocks github.com/ktigay/loyalty/internal/db PgxConn
 type PgxConn interface {
 	BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error)
@@ -58,32 +60,32 @@ func NewPgxTxFacade(pool *pgxpool.Pool) *PgxTxFacade {
 }
 
 func txWithContext(ctx context.Context, tx pgx.Tx) context.Context {
-	return context.WithValue(ctx, TxInContext, tx)
+	return context.WithValue(ctx, txInContext, tx)
 }
 
 // TxFromContext Транзакция из контекста.
 func TxFromContext(ctx context.Context) pgx.Tx {
-	pgTx, _ := ctx.Value(TxInContext).(pgx.Tx)
+	pgTx, _ := ctx.Value(txInContext).(pgx.Tx)
 	return pgTx
 }
 
-// ConnWrapper Обёртка для работы с БД.
-type ConnWrapper struct {
-	db ConnInterface
+// TxConnWrapper Обёртка для работы с БД.
+type TxConnWrapper struct {
+	db Conn
 }
 
-// Connection Возвращает [ConnInterface].
+// Connection Возвращает [Conn].
 // Если есть транзакция, то возвращается транзакция. Иначе обычное соединение к БД.
-func (c *ConnWrapper) Connection(ctx context.Context) ConnInterface {
+func (c *TxConnWrapper) Connection(ctx context.Context) Conn {
 	if tx := TxFromContext(ctx); tx != nil {
 		return tx
 	}
 	return c.db
 }
 
-// NewConnWrapper Конструктор.
-func NewConnWrapper(conn ConnInterface) *ConnWrapper {
-	return &ConnWrapper{
+// NewTxConnWrapper Конструктор.
+func NewTxConnWrapper(conn Conn) *TxConnWrapper {
+	return &TxConnWrapper{
 		db: conn,
 	}
 }

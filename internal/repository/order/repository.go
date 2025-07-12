@@ -2,6 +2,7 @@ package order
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"log/slog"
 	"strings"
@@ -42,7 +43,7 @@ var (
 
 // Repository Репозиторий заказов.
 type Repository struct {
-	db     *db.ConnWrapper
+	db     db.ConnWrapper
 	logger *slog.Logger
 }
 
@@ -108,7 +109,7 @@ func (r *Repository) OrderByUser(ctx context.Context, userUUID, orderID string) 
 }
 
 // OrdersByUser Заказы по userUUID.
-func (r *Repository) OrdersByUser(ctx context.Context, userUUID string) (*[]entity.Order, error) {
+func (r *Repository) OrdersByUser(ctx context.Context, userUUID string) ([]entity.Order, error) {
 	c, cancel := context.WithTimeout(ctx, db.RequestTimeout)
 	defer cancel()
 
@@ -136,11 +137,11 @@ func (r *Repository) OrdersByUser(ctx context.Context, userUUID string) (*[]enti
 		return nil, rows.Err()
 	}
 
-	return &orders, nil
+	return orders, nil
 }
 
 // OrdersByStatus Заказы по статусам.
-func (r *Repository) OrdersByStatus(ctx context.Context, st ...entity.OrderStatus) (*[]entity.Order, error) {
+func (r *Repository) OrdersByStatus(ctx context.Context, st ...entity.OrderStatus) ([]entity.Order, error) {
 	c, cancel := context.WithTimeout(ctx, db.RequestTimeout)
 	defer cancel()
 
@@ -168,8 +169,11 @@ func (r *Repository) OrdersByStatus(ctx context.Context, st ...entity.OrderStatu
 	if rows.Err() != nil {
 		return nil, rows.Err()
 	}
+	if len(orders) == 0 {
+		return nil, sql.ErrNoRows
+	}
 
-	return &orders, nil
+	return orders, nil
 }
 
 // Create Создаёт заказ.
@@ -177,7 +181,7 @@ func (r *Repository) Create(ctx context.Context, userUUID, orderID string) (*ent
 	c, cancel := context.WithTimeout(ctx, db.RequestTimeout)
 	defer cancel()
 
-	return r.queryRow(c, insertQuery, userUUID, orderID, entity.NEW)
+	return r.queryRow(c, insertQuery, userUUID, orderID, entity.New)
 }
 
 // Update Обновляет заказ.
@@ -189,7 +193,7 @@ func (r *Repository) Update(ctx context.Context, order entity.Order) (*entity.Or
 }
 
 // UpdateAll Обновляет заказы.
-func (r *Repository) UpdateAll(ctx context.Context, orders []entity.Order) (*[]entity.Order, error) {
+func (r *Repository) UpdateAll(ctx context.Context, orders []entity.Order) ([]entity.Order, error) {
 	c, cancel := context.WithTimeout(ctx, db.RequestTimeout)
 	defer cancel()
 
@@ -225,7 +229,7 @@ func (r *Repository) UpdateAll(ctx context.Context, orders []entity.Order) (*[]e
 		newOrders = append(newOrders, newOrder)
 	}
 
-	return &newOrders, nil
+	return newOrders, nil
 }
 
 func (r *Repository) queryRow(ctx context.Context, query string, args ...any) (*entity.Order, error) {
@@ -255,9 +259,9 @@ func (r *Repository) fullScan(row pgx.Row, order *entity.Order) error {
 }
 
 // New Конструктор.
-func New(conn db.ConnInterface, logger *slog.Logger) *Repository {
+func New(db db.ConnWrapper, logger *slog.Logger) *Repository {
 	return &Repository{
-		db:     db.NewConnWrapper(conn),
+		db:     db,
 		logger: logger,
 	}
 }

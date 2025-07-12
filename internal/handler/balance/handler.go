@@ -8,42 +8,40 @@ import (
 	"math"
 	"net/http"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ktigay/loyalty/internal/api"
 	"github.com/ktigay/loyalty/internal/entity"
 	"github.com/ktigay/loyalty/internal/security"
-	"github.com/ktigay/loyalty/internal/service/balance"
 	"github.com/ktigay/loyalty/internal/service/order"
 	"github.com/ktigay/loyalty/internal/service/withdraw"
 )
 
-// OrderServiceInterface Интерфейс сервиса заказов.
+// OrderService Интерфейс сервиса заказов.
 //
-//go:generate mockgen -destination=./mocks/mock_orderservice.go -package=mocks github.com/ktigay/loyalty/internal/handler/balance OrderServiceInterface
-type OrderServiceInterface interface {
+//go:generate mockgen -destination=./mocks/mock_orderservice.go -package=mocks github.com/ktigay/loyalty/internal/handler/balance OrderService
+type OrderService interface {
 	Create(ctx context.Context, userUUID string, orderID entity.Number) (*entity.Order, error)
 }
 
-// ServiceInterface Интерфейс сервиса балансов.
+// Service Интерфейс сервиса балансов.
 //
-//go:generate mockgen -destination=./mocks/mock_service.go -package=mocks github.com/ktigay/loyalty/internal/handler/balance ServiceInterface
-type ServiceInterface interface {
+//go:generate mockgen -destination=./mocks/mock_service.go -package=mocks github.com/ktigay/loyalty/internal/handler/balance Service
+type Service interface {
 	Balance(ctx context.Context, userUUID string) (*entity.Balance, error)
 }
 
-// WithdrawServiceInterface Интерфейс сервиса списаний.
+// WithdrawService Интерфейс сервиса списаний.
 //
-//go:generate mockgen -destination=./mocks/mock_withdrawservice.go -package=mocks github.com/ktigay/loyalty/internal/handler/balance WithdrawServiceInterface
-type WithdrawServiceInterface interface {
+//go:generate mockgen -destination=./mocks/mock_withdrawservice.go -package=mocks github.com/ktigay/loyalty/internal/handler/balance WithdrawService
+type WithdrawService interface {
 	MakeWithdraw(ctx context.Context, userUUID, orderID string, delta int64) (*entity.Withdrawal, error)
-	Withdrawals(ctx context.Context, userUUID string) (*[]entity.Withdrawal, error)
+	Withdrawals(ctx context.Context, userUUID string) ([]entity.Withdrawal, error)
 }
 
 // Handler Обработчик балансов.
 type Handler struct {
-	orderSv    OrderServiceInterface
-	balanceSv  ServiceInterface
-	withdrawSv WithdrawServiceInterface
+	orderSv    OrderService
+	balanceSv  Service
+	withdrawSv WithdrawService
 	logger     *slog.Logger
 }
 
@@ -126,7 +124,7 @@ func (b *Handler) GetWithdrawalsHandler(w http.ResponseWriter, r *http.Request) 
 		ctx         context.Context
 		identity    *entity.Identity
 		err         error
-		withdrawals *[]entity.Withdrawal
+		withdrawals []entity.Withdrawal
 	)
 	ctx = r.Context()
 
@@ -137,7 +135,7 @@ func (b *Handler) GetWithdrawalsHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if withdrawals == nil || len(*withdrawals) == 0 {
+	if len(withdrawals) == 0 {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -145,9 +143,9 @@ func (b *Handler) GetWithdrawalsHandler(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	resp := make([]api.Withdrawal, 0, len(*withdrawals))
-	for _, wd := range *withdrawals {
-		resp = append(resp, wd.ToAPI())
+	resp := make([]api.Withdrawal, 0, len(withdrawals))
+	for _, wd := range withdrawals {
+		resp = append(resp, withdrawalToAPI(wd))
 	}
 	if err = json.NewEncoder(w).Encode(resp); err != nil {
 		b.logger.Error("Failed to encode response", "err", err)
@@ -155,11 +153,11 @@ func (b *Handler) GetWithdrawalsHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 // New Конструктор.
-func New(pool *pgxpool.Pool, logger *slog.Logger) *Handler {
+func New(o OrderService, b Service, w WithdrawService, logger *slog.Logger) *Handler {
 	return &Handler{
-		orderSv:    order.New(pool, logger),
-		balanceSv:  balance.New(pool, logger),
-		withdrawSv: withdraw.New(pool, logger),
+		orderSv:    o,
+		balanceSv:  b,
+		withdrawSv: w,
 		logger:     logger,
 	}
 }
