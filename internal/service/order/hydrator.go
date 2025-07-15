@@ -23,6 +23,7 @@ func (a AccrualHydrator) Hydrate(orders []entity.Order, acc []entity.AccrualOrde
 		if !ok {
 			continue
 		}
+		ao.StatusPrev = ao.Status
 		ao.Status = mapStatus(order.Status)
 
 		v := order.Accrual

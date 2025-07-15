@@ -155,7 +155,8 @@ func main() {
 			task.ActualizeInterval(time.Duration(cfg.AccrualActualizeInterval)*time.Second),
 			logger,
 		)
-		t.ActualizeOrdersStatus(ctx, exitCtx)
+
+		t.ActualizeOrdersStatus(exitCtx)
 		wg.Done()
 	}()
 

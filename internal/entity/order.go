@@ -21,9 +21,14 @@ type Order struct {
 	UserUUID    string
 	OrderID     string
 	Status      OrderStatus
+	StatusPrev  OrderStatus
 	Accrual     *int64
 	UploadedAt  time.Time
 	ProcessedAt time.Time
+}
+
+func (o Order) StatusChanged() bool {
+	return o.Status != "" && o.Status != o.StatusPrev
 }
 
 // Number Номер.

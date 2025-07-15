@@ -41,19 +41,19 @@ type ActualizeOrderTask struct {
 }
 
 // ActualizeOrdersStatus Актуализация данных не обработанных заказов.
-func (o *ActualizeOrderTask) ActualizeOrdersStatus(ctx, exitCtx context.Context) {
+func (o *ActualizeOrderTask) ActualizeOrdersStatus(ctx context.Context) {
 	t := time.NewTicker(time.Duration(o.interval))
 	defer t.Stop()
 
 	for {
-		select {
-		case <-exitCtx.Done():
+		<-t.C
+		if ctx.Err() != nil {
 			t.Stop()
 			o.logger.Info("Exiting ActualizeOrdersStatus")
 			return
-		case <-t.C:
-			o.actualize(ctx)
 		}
+		// Останавливаем тред только после отработки актуальной задачи.
+		o.actualize(context.Background())
 	}
 }
 
@@ -61,9 +61,11 @@ func (o *ActualizeOrderTask) actualize(ctx context.Context) {
 	var (
 		orders      []entity.Order
 		received    []entity.Order
+		changed     []entity.Order
 		updated     []entity.Order
 		cntOrders   int
 		cntReceived int
+		cntChanged  int
 		cntUpdated  int
 		err         error
 	)
@@ -80,12 +82,21 @@ func (o *ActualizeOrderTask) actualize(ctx context.Context) {
 		o.logger.Error("Failed to update orders status", "err", err)
 		return
 	}
+	cntReceived = len(received)
+
+	// Обновляем только те заказы, у которых поменялся статус.
+	changed = make([]entity.Order, 0)
+	for _, r := range received {
+		if r.StatusChanged() {
+			changed = append(changed, r)
+		}
+	}
+	cntChanged = len(changed)
 
 	err = o.pgxTx.RunInTx(ctx, pgx.TxOptions{}, func(ctxWithTx context.Context) error {
 		var txErr error
-		cntReceived = len(received)
 
-		if updated, txErr = o.orderRepo.UpdateAll(ctxWithTx, received); txErr != nil {
+		if updated, txErr = o.orderRepo.UpdateAll(ctxWithTx, changed); txErr != nil {
 			o.logger.Error("Failed to update orders", "err", txErr)
 		}
 
@@ -109,6 +120,7 @@ func (o *ActualizeOrderTask) actualize(ctx context.Context) {
 	o.logger.Debug("Actualized orders finished",
 		"orders", cntOrders,
 		"received", cntReceived,
+		"changed", cntChanged,
 		"updated", cntUpdated,
 	)
 }

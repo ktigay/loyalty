@@ -24,24 +24,32 @@ type fields struct {
 func TestActualizeOrderTask_ActualizeOrdersStatus(t *testing.T) {
 	var (
 		order1 = entity.Order{
-			OrderID: "123456",
+			OrderID:    "123456",
+			Status:     entity.Processed,
+			StatusPrev: entity.New,
 			Accrual: func() *int64 {
 				v := int64(10000)
 				return &v
 			}(),
 		}
 		order2 = entity.Order{
-			OrderID: "123457",
+			OrderID:    "123457",
+			Status:     entity.Invalid,
+			StatusPrev: entity.New,
 		}
 		orders3 = entity.Order{
-			OrderID: "123458",
+			OrderID:    "123458",
+			Status:     entity.Processed,
+			StatusPrev: entity.Processing,
 			Accrual: func() *int64 {
 				v := int64(20000)
 				return &v
 			}(),
 		}
 		orders4 = entity.Order{
-			OrderID: "123459",
+			OrderID:    "123459",
+			Status:     entity.Invalid,
+			StatusPrev: entity.Processing,
 			Accrual: func() *int64 {
 				v := int64(30000)
 				return &v

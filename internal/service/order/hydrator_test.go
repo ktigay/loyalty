@@ -43,6 +43,12 @@ func TestAccrualHydrator_OrdersWithAccrual(t *testing.T) {
 						UserUUID: "uuid-1",
 						OrderID:  "4532733309529845",
 					},
+					{
+						ID:       5,
+						UserUUID: "uuid-1",
+						Status:   entity.New,
+						OrderID:  "4026843483168683",
+					},
 				},
 				acc: []entity.AccrualOrder{
 					{
@@ -69,6 +75,10 @@ func TestAccrualHydrator_OrdersWithAccrual(t *testing.T) {
 							v := 120.22
 							return &v
 						}(),
+					},
+					{
+						OrderID: "4026843483168683",
+						Status:  "PROCESSED",
 					},
 				},
 			},
@@ -103,6 +113,13 @@ func TestAccrualHydrator_OrdersWithAccrual(t *testing.T) {
 					UserUUID: "uuid-1",
 					OrderID:  "4532733309529845",
 					Status:   "PROCESSING",
+				},
+				{
+					ID:         5,
+					UserUUID:   "uuid-1",
+					OrderID:    "4026843483168683",
+					Status:     "PROCESSED",
+					StatusPrev: entity.New,
 				},
 			},
 			wantErr: assert.NoError,
