@@ -1,0 +1,16 @@
+{{- if gt (len .SecuritySchemeProviderNames) 0 }}
+type securitySchemeProviderCtxKey int
+const (
+{{range $ProviderName := .SecuritySchemeProviderNames}}
+    {{- $ProviderName | sanitizeGoIdentity | ucFirst}}Scopes  securitySchemeProviderCtxKey = iota
+{{end}}
+)
+{{end}}
+{{range $Enum := .EnumDefinitions}}
+// Defines values for {{$Enum.TypeName}}.
+const (
+{{range $name, $value := $Enum.GetValues}}
+  {{$name}} {{$Enum.TypeName}} = {{$Enum.ValueWrapper}}{{$value}}{{$Enum.ValueWrapper -}}
+{{end}}
+)
+{{end}}

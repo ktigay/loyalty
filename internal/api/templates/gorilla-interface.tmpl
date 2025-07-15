@@ -1,0 +1,30 @@
+// ServerInterface represents all server handlers.
+type ServerInterface interface {
+{{range .}}{{.SummaryAsComment }}
+// ({{.Method}} {{.Path}})
+{{.OperationId}}(w http.ResponseWriter, r *http.Request{{genParamArgs .PathParams}}{{if .RequiresParamObject}}, params {{.OperationId}}Params{{end}})
+{{end}}
+}
+
+// Server handler func.
+type HandlerFunc func(w http.ResponseWriter, r *http.Request)
+
+// Server implement ServerInterface.
+type Server struct {
+    {{range .}}{{.SummaryAsComment }}
+        {{$opid := .OperationId -}}
+        // ({{.Method}} {{.Path}})
+        {{$opid | ucFirst}}Handler HandlerFunc
+    {{end}}
+}
+{{range .}}
+{{$opid := .OperationId -}}
+// {{$opid}} wrapper for {{$opid | ucFirst}}Handler.
+func (s Server) {{$opid}}(w http.ResponseWriter, r *http.Request) {
+    if s.{{$opid | ucFirst}}Handler == nil {
+        log.Fatal("unimplemented method")
+    }
+
+	s.{{$opid | ucFirst}}Handler(w, r)
+}
+{{end}}
